@@ -32,10 +32,23 @@
             android:layout_height="wrap_content"
             android:text="@string/save" />
 
-        <Button
-            android:id="@+id/delete_item"
-            android:layout_width="wrap_content"
+        <!-- WO-12: existing items offer a count reset beside their delete action. -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/delete_item" />
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/delete_item"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/delete_item" />
+
+            <Button
+                android:id="@+id/reset_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/reset_count" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

@@ -67,6 +67,14 @@ matching types when the original link can be preserved exactly. Other values app
 **Saved link**: you can select, edit, or delete them, but cannot add them directly. A fresh
 installation starts with the same default web link.
 
+Nonzero tap counts appear under each saved item; hold an item and tap **Reset count** to
+clear its count.
+
+**Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
+screen. The screen stays on while booth mode is visible, warnings show when sharing is
+unavailable, and **Sent** appears briefly after each completed read. If NFC is off, the
+screen offers a button to open NFC settings. Press Back to return to the item list.
+
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
 observed below, not promised. On the Huawei P40 the phone must be unlocked; PocketTag does
@@ -87,8 +95,10 @@ not need to be the app on screen.
 | Sony Xperia XQ-BC72 (Android 13) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13) | Huawei phone | fails: reader reports "Empty tag" |
 | Samsung Galaxy S25 | Huawei P40 | **works**, two taps: the S25 asks which tag service to use on the first tap |
+| Huawei P40 (booth mode, past screen timeout) | Samsung Galaxy S25 | not yet tested |
+| Samsung Galaxy S25 (booth mode) | Huawei P40 | not yet tested |
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
-| any | iPhone (background tag reading) | not yet tested |
+| Huawei P40 (v0.2) | iPhone 16, iOS 26.6.1 (background tag reading) | **works** for web link, WhatsApp, call, email, SMS; contact card: no response |
 
 The Sony failure is below the app. Its NFC controller has a built-in Type 4 tag (an NXP
 "T4T NFCEE"), switched on in the vendor configuration (`NXP_T4T_NFCEE_ENABLE=0x01` in
@@ -147,6 +157,9 @@ uses-permission: name='android.permission.NFC'
 
 ## Known limitations
 
+- The phone must be unlocked when booth mode starts. It keeps the screen on only while
+  the booth screen is visible.
+- Tap counts measure completed NFC reads, not distinct people, and are stored only on the phone.
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
   of NDEF message, including record headers. Large contact cards or messages may not fit.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies

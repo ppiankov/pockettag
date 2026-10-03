@@ -268,7 +268,61 @@ class ItemStore internal constructor(
 
     fun save(item: TagItem) = update { it.save(item) }
     fun select(id: String) = update { it.select(id) }
-    fun delete(id: String) = update { it.delete(id) }
+    // WO-12: delete the item and its readable counter together; malformed counters remain untouched.
+    fun delete(id: String) {
+        val state = load()
+        if (!state.readable) return
+        val counts = try {
+            decodeTapCounts(prefs.all[TAP_COUNTS_KEY])?.toMutableMap()?.apply { remove(id) }
+        } catch (_: Exception) {
+            null
+        }
+        persist(state.delete(id), counts)
+    }
+
+    // WO-12: counter corruption cannot affect the saved-item document or trigger a repair write.
+    fun tapCounts(): Map<String, Int> = try {
+        decodeTapCounts(prefs.all[TAP_COUNTS_KEY]) ?: emptyMap()
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
+    // WO-12: saturate the integer counter rather than wrapping a completed-read count negative.
+    fun incrementTapCount(id: String) = changeTapCount(id) { count ->
+        if (count == Int.MAX_VALUE) count else count + 1
+    }
+
+    // WO-12: resetting one item leaves every other item's completed-read count intact.
+    fun resetTapCount(id: String) = changeTapCount(id) { 0 }
+
+    // WO-12: counter mutations never migrate or re-encode items_v1, and cannot resurrect deleted IDs.
+    private fun changeTapCount(id: String, change: (Int) -> Int) {
+        val values = try { prefs.all } catch (_: Exception) { return }
+        val json = values[ITEMS_KEY] as? String ?: return
+        val state = ItemState.load(json, values[ACTIVE_ID_KEY] as? String, null)
+        if (!state.readable || state.items.none { it.id == id }) return
+        val counts = (decodeTapCounts(values[TAP_COUNTS_KEY]) ?: emptyMap()).toMutableMap()
+        counts[id] = change(counts[id] ?: 0)
+        prefs.edit().putString(TAP_COUNTS_KEY, JSONObject(counts).toString()).apply()
+    }
+
+    // WO-12: distinguish invalid storage from a valid empty object so deletion never repairs corruption.
+    private fun decodeTapCounts(raw: Any?): Map<String, Int>? {
+        if (raw == null) return emptyMap()
+        if (raw !is String) return null
+        return try {
+            val json = JSONObject(raw)
+            val counts = linkedMapOf<String, Int>()
+            for (id in json.keys()) {
+                val count = json.get(id)
+                if (count !is Int || count < 0) return null
+                counts[id] = count
+            }
+            counts
+        } catch (_: JSONException) {
+            null
+        }
+    }
 
     // WO-3: every mutation stops before persistence when the saved document could not be read.
     private fun update(change: (ItemState) -> ItemState) {
@@ -278,16 +332,20 @@ class ItemStore internal constructor(
     }
 
     // WO-3: update content and selection together so a tap never sees half an edit.
-    private fun persist(state: ItemState) {
+    private fun persist(state: ItemState, counts: Map<String, Int>? = null) {
         // WO-3: the final write boundary also rejects unreadable states.
         if (!state.readable) return
         // WO-3: encoding the whole document preserves entries this version cannot read.
-        prefs.edit().putString(ITEMS_KEY, ItemJson.encode(state.document))
-            .putString(ACTIVE_ID_KEY, state.activeItemId).apply()
+        val editor = prefs.edit().putString(ITEMS_KEY, ItemJson.encode(state.document))
+            .putString(ACTIVE_ID_KEY, state.activeItemId)
+        // WO-12: a deletion's count change shares the item edit, without altering the item schema.
+        if (counts != null) editor.putString(TAP_COUNTS_KEY, JSONObject(counts).toString())
+        editor.apply()
     }
 
     companion object {
         const val ITEMS_KEY = "items_v1" // WO-3: versioned item-array schema.
         const val ACTIVE_ID_KEY = "active_item_id" // WO-3: selected stable item identity.
+        const val TAP_COUNTS_KEY = "tap_counts" // WO-12: completed reads remain separate from item content.
     }
 }

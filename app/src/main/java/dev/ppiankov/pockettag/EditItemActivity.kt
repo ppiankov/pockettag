@@ -46,6 +46,11 @@ class EditItemActivity : Activity() {
             visibility = if (existing == null) View.GONE else View.VISIBLE
             setOnClickListener { confirmDelete() }
         }
+        // WO-12: only persisted items have a completed-read count to reset.
+        findViewById<Button>(R.id.reset_count).apply {
+            visibility = if (existing == null) View.GONE else View.VISIBLE
+            setOnClickListener { existing?.let { store.resetTapCount(it.id) } }
+        }
     }
 
     // WO-3: dynamically created fields retain an unsaved draft across recreation.

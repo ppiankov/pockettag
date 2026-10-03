@@ -12,7 +12,7 @@ import java.util.Date
 object TagPrefs {
     private const val FILE = "pockettag"
     private const val KEY_URL = "url"
-    private const val KEY_ENABLED = "enabled"
+    internal const val KEY_ENABLED = "enabled" // WO-15: booth observers share the serving preference key.
     private const val KEY_TRACE = "last_trace"
     private const val KEY_SHOW_TRACE = "show_trace"
     const val DEFAULT_URL = "https://obstalabs.dev"
@@ -59,15 +59,30 @@ object TagPrefs {
  * the NDEF application AID declared in res/xml/apduservice.xml.
  */
 class NdefHostApduService : HostApduService() {
-    private val tag = Type4Tag(::currentNdefFile)
+    private var servedItemId: String? = null // WO-12: the count follows the item snapshotted at SELECT.
+    private val tag = Type4Tag(::currentNdefFile, ::readCompleted) // WO-12: observe completed NDEF delivery.
 
     // WO-3: read selected content at application SELECT; unavailable content answers 6A82.
     private fun currentNdefFile(): ByteArray? {
+        // WO-12: a refused selection must not retain an earlier item's count destination.
+        servedItemId = null
         if (!TagPrefs.enabled(this)) return null
         return try {
-            ItemStore(this).load().ndefFile(enabled = true)
+            // WO-12: snapshot identity and encoded content from the same saved-item state.
+            val state = ItemStore(this).load()
+            state.ndefFile(enabled = true)?.also { servedItemId = state.activeItemId }
         } catch (_: Exception) {
             null
+        }
+    }
+
+    // WO-12: counting failure cannot alter the reader's APDU response.
+    private fun readCompleted() {
+        val id = servedItemId ?: return
+        try {
+            ItemStore(this).incrementTapCount(id)
+        } catch (_: Exception) {
+            Log.w(LOG_TAG, "Completed read count could not be saved.")
         }
     }
 
@@ -82,6 +97,8 @@ class NdefHostApduService : HostApduService() {
 
     override fun onDeactivated(reason: Int) {
         tag.reset()
+        // WO-12: deactivation releases the identity bound to the completed-read session.
+        servedItemId = null
         if (trace.isNotEmpty()) {
             val time = DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date())
             TagPrefs.saveTrace(this, "Last tap $time (deactivated: $reason)\n" + trace.joinToString("\n"))

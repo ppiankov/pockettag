@@ -50,4 +50,16 @@
     <string name="status_no_item">No item selected</string>
     <!-- WO-3: distinguish unreadable storage from an intentionally empty selection. -->
     <string name="status_unreadable">Saved items could not be read; nothing was changed.</string>
+    <!-- WO-12: counts describe completed reads and remain hidden on list rows until nonzero. -->
+    <plurals name="tap_count">
+        <item quantity="one">Tapped %d time</item>
+        <item quantity="other">Tapped %d times</item>
+    </plurals>
+    <string name="reset_count">Reset count</string>
+    <!-- WO-15: the booth screen makes sharing readiness and completed reads visible. -->
+    <string name="booth_mode">Booth mode</string>
+    <string name="booth_instruction">Hold your phone against the back of this one</string>
+    <string name="booth_sent">Sent</string>
+    <string name="booth_nfc_settings">Open NFC settings</string>
+    <string name="status_item_invalid">The selected item cannot be shared.</string>
 </resources>
