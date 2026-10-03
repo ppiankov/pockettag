@@ -1,10 +1,10 @@
 package dev.ppiankov.pockettag
 
-// Pure encoding and APDU logic for an NFC Forum Type 4 Tag (mapping version 2.0) carrying a
-// single URI record. No Android imports, so all of it is covered by JVM unit tests.
+// Pure encoding and APDU logic for an NFC Forum Type 4 Tag (mapping version 2.0).
+// No Android imports, so all of it is covered by JVM unit tests.
 
-/** Thrown when a URL cannot be carried in a single short NDEF URI record. */
-class UrlTooLongException(message: String) : IllegalArgumentException(message)
+// WO-3: the size error applies to the complete NDEF file for any content type.
+class NdefTooLargeException(message: String) : IllegalArgumentException(message)
 
 object NdefMessage {
     // NDEF record header: MB | ME | SR, TNF = 0x01 (NFC Forum well-known type).
@@ -34,30 +34,47 @@ object NdefMessage {
         return byteArrayOf(code) + rest.toByteArray(Charsets.UTF_8)
     }
 
-    /** Encodes [url] as a one-record NDEF message (short URI record). */
-    fun uriRecord(url: String): ByteArray {
-        val payload = uriPayload(url)
-        if (payload.size > MAX_SHORT_PAYLOAD) {
-            throw UrlTooLongException(
-                "URL encodes to ${payload.size} bytes; the limit is $MAX_SHORT_PAYLOAD"
-            )
+    // WO-3: retain short URI bytes while allowing payloads beyond one-byte lengths.
+    fun uriRecord(url: String): ByteArray =
+        record(HEADER_SHORT_WELL_KNOWN, byteArrayOf(TYPE_URI), uriPayload(url))
+
+    // WO-3: contact cards use a single media-type record with the same length rules.
+    fun mimeRecord(type: String, payload: ByteArray): ByteArray {
+        val typeBytes = type.toByteArray(Charsets.US_ASCII)
+        require(typeBytes.isNotEmpty() && typeBytes.size <= MAX_SHORT_PAYLOAD) {
+            "MIME type must contain between 1 and 255 ASCII bytes."
         }
-        return byteArrayOf(
-            HEADER_SHORT_WELL_KNOWN,
-            0x01, // type length
-            payload.size.toByte(),
-            TYPE_URI,
-        ) + payload
+        require(type.all { it.code in 0x21..0x7E }) { "MIME type must be ASCII." }
+        return record(HEADER_SHORT_MIME, typeBytes, payload)
     }
 
-    /** The NDEF file: a 2-byte big-endian NLEN followed by the NDEF message. */
-    fun ndefFile(url: String): ByteArray {
-        val message = uriRecord(url)
+    // WO-3: clearing SR changes the length field to four big-endian bytes.
+    private fun record(shortHeader: Byte, type: ByteArray, payload: ByteArray): ByteArray {
+        val short = payload.size <= MAX_SHORT_PAYLOAD
+        val header = if (short) shortHeader else (shortHeader.toInt() and SR_MASK.inv()).toByte()
+        val length = if (short) byteArrayOf(payload.size.toByte()) else byteArrayOf(
+            (payload.size ushr 24).toByte(), (payload.size ushr 16).toByte(),
+            (payload.size ushr 8).toByte(), payload.size.toByte(),
+        )
+        return byteArrayOf(header, type.size.toByte()) + length + type + payload
+    }
+
+    fun ndefFile(url: String): ByteArray = ndefFile(uriRecord(url))
+
+    // WO-3: the advertised file limit includes NLEN, regardless of record type.
+    fun ndefFile(message: ByteArray): ByteArray {
+        if (message.size > Type4Constants.MAX_NDEF_FILE_SIZE - NLEN_SIZE) {
+            throw NdefTooLargeException("Item exceeds the 1024-byte tag file limit.")
+        }
         return byteArrayOf(
             (message.size shr 8 and 0xFF).toByte(),
             (message.size and 0xFF).toByte(),
         ) + message
     }
+
+    private const val HEADER_SHORT_MIME: Byte = 0xD2.toByte() // WO-3: MB, ME, SR, media TNF.
+    private const val SR_MASK = 0x10 // WO-3: short-record flag in the record header.
+    private const val NLEN_SIZE = 2 // WO-3: Type 4 file length prefix in bytes.
 }
 
 object Type4Constants {
@@ -80,8 +97,8 @@ object Type4Constants {
     const val MLE = 0x003B
     const val MLC = 0x0034
 
-    // Largest NDEF file we will ever serve: NLEN + short-record header (4) + payload.
-    const val MAX_NDEF_FILE_SIZE = 2 + 4 + NdefMessage.MAX_SHORT_PAYLOAD
+    // WO-3: whole tag file, including the two-byte NLEN (1022 message bytes remain).
+    const val MAX_NDEF_FILE_SIZE = 1024
 
     const val READ_ACCESS_GRANTED = 0x00
     const val WRITE_ACCESS_DENIED = 0xFF

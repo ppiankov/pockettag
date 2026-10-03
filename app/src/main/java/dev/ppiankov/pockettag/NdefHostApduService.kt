@@ -36,6 +36,11 @@ object TagPrefs {
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, true)
 
+    // WO-3: toggling serving must leave the retained v0.1 URL and saved content untouched.
+    fun setEnabled(context: Context, enabled: Boolean) {
+        prefs(context).edit().putBoolean(KEY_ENABLED, enabled).apply()
+    }
+
     fun save(context: Context, url: String, enabled: Boolean) {
         prefs(context).edit().putString(KEY_URL, url).putBoolean(KEY_ENABLED, enabled).apply()
     }
@@ -56,12 +61,12 @@ object TagPrefs {
 class NdefHostApduService : HostApduService() {
     private val tag = Type4Tag(::currentNdefFile)
 
-    // Read on every application SELECT so edits in the app apply on the next tap.
+    // WO-3: read selected content at application SELECT; unavailable content answers 6A82.
     private fun currentNdefFile(): ByteArray? {
         if (!TagPrefs.enabled(this)) return null
         return try {
-            NdefMessage.ndefFile(TagPrefs.url(this))
-        } catch (e: UrlTooLongException) {
+            ItemStore(this).load().ndefFile(enabled = true)
+        } catch (_: Exception) {
             null
         }
     }

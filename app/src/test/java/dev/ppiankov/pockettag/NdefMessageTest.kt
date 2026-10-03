@@ -48,20 +48,20 @@ class NdefMessageTest {
 
     @Test
     fun longestAllowedUrlFits() {
-        val url = "https://" + "a".repeat(NdefMessage.MAX_SHORT_PAYLOAD - 1)
+        val url = "https://" + "a".repeat(Type4Constants.MAX_NDEF_FILE_SIZE - 10)
         val file = NdefMessage.ndefFile(url)
         assertEquals(Type4Constants.MAX_NDEF_FILE_SIZE, file.size)
     }
 
-    @Test(expected = UrlTooLongException::class)
+    @Test(expected = NdefTooLargeException::class)
     fun tooLongUrlIsRejected() {
-        NdefMessage.uriRecord("https://" + "a".repeat(NdefMessage.MAX_SHORT_PAYLOAD))
+        NdefMessage.ndefFile("https://" + "a".repeat(Type4Constants.MAX_NDEF_FILE_SIZE - 9))
     }
 
     @Test
     fun ccFileBytes() {
-        // CCLEN 000F, v2.0, MLe 003B, MLc 0034, TLV 04 06 E104, max size 0105, read 00, write FF
-        assertArrayEquals(hex("000F20003B00340406E104010500FF"), Type4Constants.CC_FILE)
+        // CCLEN 000F, v2.0, MLe 003B, MLc 0034, TLV 04 06 E104, max size 0400, read 00, write FF
+        assertArrayEquals(hex("000F20003B00340406E104040000FF"), Type4Constants.CC_FILE)
     }
 }
 
