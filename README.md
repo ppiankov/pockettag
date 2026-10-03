@@ -95,6 +95,7 @@ not need to be the app on screen.
 | Sony Xperia XQ-BC72 (Android 13) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13) | Huawei phone | fails: reader reports "Empty tag" |
 | Samsung Galaxy S25 | Huawei P40 | **works**, two taps: the S25 asks which tag service to use on the first tap |
+| Huawei P40 (booth mode, contact card) | Samsung Galaxy S25 | **works**: the S25 reads the whole contact card and the tap count goes up |
 | Huawei P40 (booth mode, past screen timeout) | Samsung Galaxy S25 | not yet tested |
 | Samsung Galaxy S25 (booth mode) | Huawei P40 | not yet tested |
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
