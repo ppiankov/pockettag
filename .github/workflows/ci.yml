@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests
+        run: ./gradlew test
+
+      - name: Assemble debug APK
+        run: ./gradlew assembleDebug
+
+      - name: Permissions (no INTERNET)
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          if [ ! -x "$AAPT" ]; then
+            AAPT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)/aapt"
+          fi
+          "$AAPT" dump permissions app/build/outputs/apk/debug/app-debug.apk | tee permissions.txt
+          if grep -q 'android.permission.INTERNET' permissions.txt; then
+            echo "INTERNET permission found" >&2
+            exit 1
+          fi

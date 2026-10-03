@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PocketTag</string>
+    <string name="service_description">PocketTag NDEF URL tag</string>
+    <string name="url_label">URL a tap opens</string>
+    <string name="url_hint">https://example.com</string>
+    <string name="save">Save</string>
+    <string name="enabled">Serve tag</string>
+    <string name="saved">Saved.</string>
+    <string name="error_empty">URL is empty; not saved.</string>
+    <string name="error_too_long">URL is too long for one tag record; not saved.</string>
+    <string name="status_no_nfc">This device has no NFC.</string>
+    <string name="status_no_hce">This device cannot emulate NFC tags (no HCE).</string>
+    <string name="status_nfc_off">NFC is off. Turn it on in system settings.</string>
+    <string name="status_paused">Paused. Readers see no tag.</string>
+    <string name="status_serving">Serving %1$s. Unlock and tap another phone.</string>
+    <string name="routing_ok">Tag AID routed to PocketTag.</string>
+    <string name="routing_other">Tag AID is NOT routed to PocketTag (another app or the system has it). Keep PocketTag open while tapping.</string>
+    <string name="diagnostics">Show last tap details</string>
+    <string name="trace_none">No reader has talked to PocketTag yet.</string>
+</resources>
