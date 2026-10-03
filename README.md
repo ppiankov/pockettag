@@ -109,7 +109,12 @@ The tag is read-only: the CC file denies write access.
 
 Permissions: CI runs `aapt dump permissions` on every build and fails if
 `android.permission.INTERNET` appears. The only permission the app requests is
-`android.permission.NFC`.
+`android.permission.NFC`. Output for 0.1.0:
+
+```
+package: dev.ppiankov.pockettag
+uses-permission: name='android.permission.NFC'
+```
 
 ## Known limitations
 
