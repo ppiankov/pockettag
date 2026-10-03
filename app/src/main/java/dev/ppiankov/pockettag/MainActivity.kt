@@ -120,12 +120,16 @@ class MainActivity : Activity() {
         }
     }
 
+    // WO-3: report saved-data read failures before ordinary NFC availability.
     private fun refreshStatus(prefix: String?) {
         val adapter = NfcAdapter.getDefaultAdapter(this)
         val hce = packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)
-        // WO-3: an empty selection is explicit even when serving remains switched on.
-        val selected = store.load().activeItem
+        // WO-3: unreadable storage disables creation and takes precedence over empty-selection status.
+        val savedItems = store.load()
+        findViewById<Button>(R.id.add_item).isEnabled = savedItems.readable
+        val selected = savedItems.activeItem
         val state = when {
+            !savedItems.readable -> getString(R.string.status_unreadable)
             selected == null -> getString(R.string.status_no_item)
             adapter == null -> getString(R.string.status_no_nfc)
             !hce -> getString(R.string.status_no_hce)

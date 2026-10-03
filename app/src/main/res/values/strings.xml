@@ -48,4 +48,6 @@
     <string name="delete_item_title">Delete this item?</string>
     <string name="delete_item_message">Delete “%1$s”?</string>
     <string name="status_no_item">No item selected</string>
+    <!-- WO-3: distinguish unreadable storage from an intentionally empty selection. -->
+    <string name="status_unreadable">Saved items could not be read; nothing was changed.</string>
 </resources>

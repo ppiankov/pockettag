@@ -161,6 +161,8 @@ uses-permission: name='android.permission.NFC'
 ## Roadmap
 
 - Record results for the device pairs in the table.
+- Several saved items to choose from: web link, contact card (vCard), WhatsApp chat, call,
+  email, SMS.
 - Opt-in chip mode for phones like the Sony above: write the selected item into the NFC
   controller's built-in tag.
 - Show the selected item as a QR code for phones without NFC.
@@ -175,6 +177,8 @@ The mechanism is well known. PocketTag was written after studying these projects
 
 PocketTag's code is a small independent implementation of the NFC Forum Type 4 Tag
 specification; it does not bundle any of the above.
+
+Built with AI agents under a Hiveram work-order record (4 work orders).
 
 ## License
 

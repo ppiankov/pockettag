@@ -1,6 +1,8 @@
 package dev.ppiankov.pockettag
 
+import android.content.SharedPreferences
 import dev.ppiankov.pockettag.Type4Constants.hex
+import org.json.JSONArray
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -8,6 +10,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.Proxy
 import java.util.UUID
 
 class TagItemTest {
@@ -379,6 +382,147 @@ class TagItemTest {
         assertEquals(" Email ", contact.email)
         assertEquals(" Note \n", contact.note)
         assertEquals("https://example.com", ItemState.load(null, null, " \thttps://example.com\n").activeItem?.uri)
+    }
+
+    @Test
+    fun unreadableDocumentsNeverReachThePreferencesEditor() {
+        val countMismatch = "[a'b,c'd]"
+        assertEquals(2, JSONArray(countMismatch).length())
+        val item = TagItem.Link("New", "https://example.com", "new")
+        for (original in listOf("{}", "not json", "[1,", countMismatch)) {
+            val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to original,
+                ItemStore.ACTIVE_ID_KEY to "old", "url" to "https://example.com/legacy"))
+            val before = prefs.values.toMap()
+            val store = ItemStore(prefs.preferences)
+            val state = store.load()
+            assertFalse(original, state.readable)
+            assertTrue(state.items.isEmpty())
+            assertNull(state.activeItem)
+            assertNull(state.activeItemId)
+            assertNull(state.ndefFile(true))
+            assertTrue(state === state.save(item))
+            assertTrue(state === state.select("old"))
+            assertTrue(state === state.delete("old"))
+            store.save(item)
+            store.select("old")
+            store.delete("old")
+            assertEquals(0, prefs.editCount)
+            assertEquals(before, prefs.values)
+            assertArrayEquals(bytes(original), bytes(prefs.values[ItemStore.ITEMS_KEY] as String))
+        }
+    }
+
+    @Test
+    fun nonStringStoredItemsNeverMigrateOrWrite() {
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to 42,
+            ItemStore.ACTIVE_ID_KEY to "old", "url" to "https://example.com/legacy"))
+        val before = prefs.values.toMap()
+        val store = ItemStore(prefs.preferences)
+        assertFalse(store.load().readable)
+        assertTrue(store.load().items.isEmpty())
+        assertNull(store.load().ndefFile(true))
+        store.save(TagItem.Link("New", "https://example.com"))
+        store.select("old")
+        store.delete("old")
+        assertEquals(0, prefs.editCount)
+        assertEquals(before, prefs.values)
+    }
+
+    @Test
+    fun preferenceReadExceptionsCannotEnableLaterWrites() {
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to "[]"))
+        prefs.readFailure = IllegalStateException("Preferences unavailable")
+        val before = prefs.values.toMap()
+        val store = ItemStore(prefs.preferences)
+        assertFalse(store.load().readable)
+        assertTrue(store.load().items.isEmpty())
+        assertNull(store.load().ndefFile(true))
+        store.save(TagItem.Link("New", "https://example.com"))
+        store.select("old")
+        store.delete("old")
+        assertEquals(0, prefs.editCount)
+        assertEquals(before, prefs.values)
+    }
+
+    @Test
+    fun mutationsReloadStorageBeforeWritingFromAnAlreadyOpenList() {
+        val item = TagItem.Link("Old", "https://example.com/old", "old")
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to ItemJson.encode(listOf(item)),
+            ItemStore.ACTIVE_ID_KEY to item.id))
+        val store = ItemStore(prefs.preferences)
+        assertTrue(store.load().readable)
+        assertEquals(item.id, store.load().activeItemId)
+        prefs.values[ItemStore.ITEMS_KEY] = "[1,"
+        val before = prefs.values.toMap()
+        store.save(TagItem.Link("Edited", "https://example.com/edited", item.id))
+        store.select(item.id)
+        store.delete(item.id)
+        assertEquals(0, prefs.editCount)
+        assertEquals(before, prefs.values)
+        assertFalse(store.load().readable)
+    }
+
+    @Test
+    fun intentionalEmptyStorageAndAbsentStorageRemainWritable() {
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to "[]"))
+        val store = ItemStore(prefs.preferences)
+        assertTrue(store.load().readable)
+        assertEquals(0, prefs.editCount)
+        val item = TagItem.Link("New", "https://example.com", "new")
+        store.save(item)
+        assertEquals(item.id, store.load().activeItemId)
+        store.select(item.id)
+        store.delete(item.id)
+        assertEquals(3, prefs.editCount)
+        assertEquals("[]", prefs.values[ItemStore.ITEMS_KEY])
+        assertFalse(prefs.values.containsKey(ItemStore.ACTIVE_ID_KEY))
+        assertTrue(store.load().readable)
+
+        val legacy = "tel:+60123456789"
+        val missing = StoredItemsPreferences(mapOf("url" to legacy, "enabled" to true))
+        val migrated = ItemStore(missing.preferences).load()
+        assertTrue(migrated.readable)
+        assertEquals(legacy, migrated.activeItem?.uri)
+        assertEquals(1, missing.editCount)
+        assertEquals(legacy, missing.values["url"])
+        assertEquals(true, missing.values["enabled"])
+        assertTrue(ItemStore(missing.preferences).load().readable)
+        assertEquals(1, missing.editCount)
+    }
+
+    // WO-3: count actual preference-editor access so unchanged data alone cannot mask an attempted write.
+    private class StoredItemsPreferences(initial: Map<String, Any>) {
+        val values = initial.toMutableMap()
+        var editCount = 0
+        var readFailure: RuntimeException? = null
+        val preferences = Proxy.newProxyInstance(SharedPreferences::class.java.classLoader,
+            arrayOf(SharedPreferences::class.java)) { _, method, _ ->
+            when (method.name) {
+                "getAll" -> { readFailure?.let { throw it }; values.toMap() }
+                "edit" -> { editCount++; editor() }
+                else -> error("Unexpected preference call: ${method.name}")
+            }
+        } as SharedPreferences
+
+        private fun editor(): SharedPreferences.Editor {
+            val changes = mutableMapOf<String, String?>()
+            return Proxy.newProxyInstance(SharedPreferences.Editor::class.java.classLoader,
+                arrayOf(SharedPreferences.Editor::class.java)) { proxy, method, args ->
+                when (method.name) {
+                    "putString" -> {
+                        changes[args!![0] as String] = args[1] as String?
+                        proxy
+                    }
+                    "apply" -> {
+                        changes.forEach { (key, value) ->
+                            if (value == null) values.remove(key) else values[key] = value
+                        }
+                        null
+                    }
+                    else -> error("Unexpected editor call: ${method.name}")
+                }
+            } as SharedPreferences.Editor
+        }
     }
 
     private fun sampleItems(): List<TagItem> = listOf(

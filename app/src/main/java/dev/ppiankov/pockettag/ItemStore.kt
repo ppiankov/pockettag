@@ -1,6 +1,7 @@
 package dev.ppiankov.pockettag
 
 import android.content.Context
+import android.content.SharedPreferences
 import java.net.URLDecoder
 import org.json.JSONArray
 import org.json.JSONException
@@ -15,6 +16,7 @@ data class ItemEntry(
 // WO-3: keep known and opaque entries in one sequence so list operations preserve their order.
 data class ItemDocument(
     val entries: List<ItemEntry>, // WO-3: full persisted order, including unreadable entries.
+    val readable: Boolean = true, // WO-3: a failed document decode must never become writable.
 ) {
     val items: List<TagItem> get() = entries.mapNotNull { it.item }
 }
@@ -57,9 +59,11 @@ object ItemJson {
             val array = JSONArray(json)
             splitEntries(json).also { require(it.size == array.length()) }
         } catch (_: JSONException) {
-            return ItemDocument(emptyList())
+            // WO-3: invalid documents are distinct from intentional empty arrays.
+            return ItemDocument(emptyList(), readable = false)
         } catch (_: IllegalArgumentException) {
-            return ItemDocument(emptyList())
+            // WO-3: disagreeing parsers cannot authorize rewriting the original document.
+            return ItemDocument(emptyList(), readable = false)
         }
         return ItemDocument(originals.map { original ->
             val item = try {
@@ -144,11 +148,14 @@ data class ItemState(
     constructor(items: List<TagItem>, activeItemId: String?) :
         this(ItemDocument(items.map { ItemEntry(it, "") }), activeItemId)
 
-    val items: List<TagItem> get() = document.items
+    val readable: Boolean get() = document.readable // WO-3: retain the document's write prohibition.
+    val items: List<TagItem> get() = if (readable) document.items else emptyList()
     val activeItem: TagItem? get() = items.firstOrNull { it.id == activeItemId }
 
     // WO-3: edits preserve order, identity, type, and the current selection.
     fun save(item: TagItem): ItemState {
+        // WO-3: unreadable saved data cannot be replaced by a newly added item.
+        if (!readable) return this
         val existing = items.firstOrNull { it.id == item.id }
         require(existing == null || existing.type == item.type) { "An item's type cannot change." }
         // WO-3: replace only the decoded entry; opaque neighbours retain their original positions.
@@ -160,12 +167,16 @@ data class ItemState(
 
     // WO-3: selection can only point at an item already in the stored list.
     fun select(id: String): ItemState {
+        // WO-3: stale UI selection must not turn a read failure into a write.
+        if (!readable) return this
         require(items.any { it.id == id }) { "Item no longer exists." }
         return copy(activeItemId = id)
     }
 
     // WO-3: deleting the active item picks the first remaining item, or clears selection.
     fun delete(id: String): ItemState {
+        // WO-3: unreadable documents remain untouched even for stale delete requests.
+        if (!readable) return this
         // WO-3: delete only readable matches and choose the first remaining readable item.
         val remaining = ItemDocument(document.entries.filterNot { it.item?.id == id })
         val active = if (activeItemId == id) remaining.items.firstOrNull()?.id else activeItemId
@@ -174,7 +185,8 @@ data class ItemState(
 
     // WO-3: readers see no application when disabled, unselected, or unable to encode.
     fun ndefFile(enabled: Boolean): ByteArray? {
-        if (!enabled) return null
+        // WO-3: a document-level failure cannot expose any saved content.
+        if (!enabled || !readable) return null
         return try {
             activeItem?.let { NdefMessage.ndefFile(it.ndefMessage()) }
         } catch (_: Exception) {
@@ -183,6 +195,9 @@ data class ItemState(
     }
 
     companion object {
+        // WO-3: storage exceptions share the same non-writable state as parse failures.
+        fun unreadable(): ItemState = ItemState(ItemDocument(emptyList(), readable = false), null)
+
         // WO-3: only absence of items_v1 triggers migration; an intentional empty list stays empty.
         fun load(itemsJson: String?, activeId: String?, legacyUrl: String?): ItemState {
             // WO-3: migration changes representation only when the generated URI is unchanged.
@@ -229,8 +244,10 @@ data class ItemState(
 }
 
 // WO-3: share the existing pockettag preferences with serving and diagnostic settings.
-class ItemStore(context: Context) {
-    private val prefs = context.getSharedPreferences("pockettag", Context.MODE_PRIVATE)
+class ItemStore internal constructor(
+    private val prefs: SharedPreferences, // WO-3: exercise the real write boundary without Android I/O.
+) {
+    constructor(context: Context) : this(context.getSharedPreferences("pockettag", Context.MODE_PRIVATE))
 
     // WO-3: write the migration once, atomically, without touching the legacy URL or other keys.
     fun load(): ItemState {
@@ -238,21 +255,32 @@ class ItemStore(context: Context) {
         return try {
             val values = prefs.all
             val hasItems = values.containsKey(ITEMS_KEY)
-            val json = if (hasItems) values[ITEMS_KEY] as? String ?: "" else null
+            // WO-3: a present value of the wrong type is unreadable, never a migration request.
+            val json = if (hasItems) values[ITEMS_KEY] as? String ?: return ItemState.unreadable() else null
             val state = ItemState.load(json, values[ACTIVE_ID_KEY] as? String, values["url"] as? String)
             if (!hasItems) persist(state)
             state
         } catch (_: Exception) {
-            ItemState(emptyList(), null)
+            // WO-3: failed reads must not authorize a later overwrite of the stored value.
+            ItemState.unreadable()
         }
     }
 
-    fun save(item: TagItem) = persist(load().save(item))
-    fun select(id: String) = persist(load().select(id))
-    fun delete(id: String) = persist(load().delete(id))
+    fun save(item: TagItem) = update { it.save(item) }
+    fun select(id: String) = update { it.select(id) }
+    fun delete(id: String) = update { it.delete(id) }
+
+    // WO-3: every mutation stops before persistence when the saved document could not be read.
+    private fun update(change: (ItemState) -> ItemState) {
+        val state = load()
+        if (!state.readable) return
+        persist(change(state))
+    }
 
     // WO-3: update content and selection together so a tap never sees half an edit.
     private fun persist(state: ItemState) {
+        // WO-3: the final write boundary also rejects unreadable states.
+        if (!state.readable) return
         // WO-3: encoding the whole document preserves entries this version cannot read.
         prefs.edit().putString(ITEMS_KEY, ItemJson.encode(state.document))
             .putString(ACTIVE_ID_KEY, state.activeItemId).apply()
