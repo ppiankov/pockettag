@@ -56,12 +56,12 @@ object TagPrefs {
 class NdefHostApduService : HostApduService() {
     private val tag = Type4Tag(::currentNdefFile)
 
-    // Read on every application SELECT so edits in the app apply on the next tap.
+    // WO-3: read selected content at application SELECT; unavailable content answers 6A82.
     private fun currentNdefFile(): ByteArray? {
         if (!TagPrefs.enabled(this)) return null
         return try {
-            NdefMessage.ndefFile(TagPrefs.url(this))
-        } catch (e: UrlTooLongException) {
+            ItemStore(this).load().ndefFile(enabled = true)
+        } catch (_: Exception) {
             null
         }
     }

@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">PocketTag</string>
-    <string name="service_description">PocketTag NDEF URL tag</string>
+    <string name="service_description">PocketTag NDEF tag</string>
     <string name="url_label">URL a tap opens</string>
     <string name="url_hint">https://example.com</string>
     <string name="save">Save</string>
     <string name="enabled">Serve tag</string>
     <string name="saved">Saved.</string>
     <string name="error_empty">URL is empty; not saved.</string>
-    <string name="error_too_long">URL is too long for one tag record; not saved.</string>
+    <string name="error_too_long">Item exceeds the 1024-byte tag file limit; not saved.</string>
     <string name="status_no_nfc">This device has no NFC.</string>
     <string name="status_no_hce">This device cannot emulate NFC tags (no HCE).</string>
     <string name="status_nfc_off">NFC is off. Turn it on in system settings.</string>
@@ -18,4 +18,32 @@
     <string name="routing_other">Tag AID is NOT routed to PocketTag (another app or the system has it). Keep PocketTag open while tapping.</string>
     <string name="diagnostics">Show last tap details</string>
     <string name="trace_none">No reader has talked to PocketTag yet.</string>
+    <!-- WO-3: selector and type-specific editor labels. -->
+    <string name="items_label">Saved items</string>
+    <string name="items_help">Tap to select. Hold an item to edit or delete.</string>
+    <string name="add_item">Add</string>
+    <string name="add_item_title">Add an item</string>
+    <string name="item_row">%1$s\n%2$s</string>
+    <string name="item_label">Label</string>
+    <string name="type_link">Web link</string>
+    <string name="type_contact">Contact card</string>
+    <string name="type_whatsapp">WhatsApp chat</string>
+    <string name="type_call">Call</string>
+    <string name="type_email">Email</string>
+    <string name="type_sms">SMS</string>
+    <string name="field_url">Web link (http:// or https://)</string>
+    <string name="field_number">Phone number</string>
+    <string name="field_address">Email address</string>
+    <string name="field_subject">Subject (optional)</string>
+    <string name="field_body">Message (optional)</string>
+    <string name="field_given_name">Given name</string>
+    <string name="field_family_name">Family name</string>
+    <string name="field_org">Organisation</string>
+    <string name="field_title">Job title</string>
+    <string name="field_contact_url">Website</string>
+    <string name="field_note">Note</string>
+    <string name="delete_item">Delete</string>
+    <string name="delete_item_title">Delete this item?</string>
+    <string name="delete_item_message">Delete “%1$s”?</string>
+    <string name="status_no_item">No item selected</string>
 </resources>

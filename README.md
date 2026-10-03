@@ -4,16 +4,18 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ![Android 7.0+](https://img.shields.io/badge/android-7.0%2B-green.svg)
 
-Your phone is the business card: tap it against someone else's phone and their phone opens your URL.
+Your phone is the business card: choose what to share, then tap another phone.
 
 ## What PocketTag is
 
-A tiny Android app that makes the phone act like an NFC sticker carrying one URL. It
-emulates an NFC Forum Type 4 Tag through Android host card emulation (HCE) and serves a
-single NDEF URI record. The other phone needs nothing installed: it sees an ordinary URL
-tag, exactly as if you had tapped a sticker.
+A tiny Android app that makes the phone act like an NFC sticker carrying your selected
+web link, contact card (vCard), WhatsApp chat, call, email, or SMS link. It emulates an NFC
+Forum Type 4 Tag through Android host card emulation (HCE) and serves one NDEF record.
+The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
+and NFC support.
 
-One screen, one URL, one switch. The URL lives in the app's private storage on your phone.
+Keep several saved items and pick one to share. Everything lives in the app's private
+storage on your phone. Contact details are entered manually.
 
 ## What PocketTag is NOT
 
@@ -30,7 +32,7 @@ One screen, one URL, one switch. The URL lives in the app's private storage on y
 
 Paper cards run out at every conference. The technology to replace them has existed for
 years, buried in apps with ads, accounts, or a card platform attached. PocketTag is the
-smallest thing that does the job: a URL, a tap, nothing else. If it ever needs a server,
+smallest thing that does the job: one chosen item, a tap, nothing else. If it ever needs a server,
 it has stopped being PocketTag.
 
 ## Quick start
@@ -47,19 +49,29 @@ and HCE support.
 
 ## Usage
 
-1. Open PocketTag, type your URL, tap **Save**.
-2. Make sure NFC is on in system settings and **Serve tag** is switched on.
-3. Unlock your phone and hold its back against the back of the other phone.
-4. The other phone shows a notification or opens the URL, depending on its NFC settings.
+1. Open PocketTag, tap **Add**, and choose a content type.
+2. Enter a label and the fields for that type, then tap **Save**. Invalid or oversized items
+   show an inline error and are not saved.
+3. Tap a saved item to select it. Hold an item to edit it or confirm its deletion.
+4. Make sure NFC is on in system settings and **Serve tag** is switched on.
+5. Unlock your phone and hold its back against the back of the other phone. The reader
+   handles the selected content according to its NFC settings and installed apps.
 
-Switch **Serve tag** off to stop answering readers. Changing the URL takes effect on the
-next tap.
+Switch **Serve tag** off to stop answering readers. Selection and edits take effect on the
+next tap. Deleting the selected item selects the first remaining item; deleting the last
+item leaves **No item selected**, and readers see no tag.
+
+On upgrading from v0.1, the existing URL becomes the selected **Web link** item. A fresh
+installation starts with the same default web link.
 
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
 observed below, not promised.
 
 ## Tested devices
+
+These are the existing URL results. Checks of all six content types from the P40 to the
+S25 are pending operator review; the reviewer will record those results here.
 
 | Tag (PocketTag) | Reader | Result |
 |---|---|---|
@@ -86,30 +98,38 @@ including when the phone is locked.
 
 With **Show last tap details** switched on, a successful tap's trace shows the reader
 selecting the NDEF application, reading the Capability Container, selecting the NDEF file,
-reading its length, then reading the URI record.
+reading its length, then reading the selected item's record.
 
 ## Architecture
 
 ```
 reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService ──▶ Type4Tag
                                                    │                    │
-                                              TagPrefs (URL)      NdefMessage (encoder)
+                                           ItemStore (active)     NdefMessage (encoder)
 ```
 
-- `NdefMessage.kt`: pure Kotlin, no Android imports. It encodes the URI record (with the
-  NFC Forum URI prefix abbreviation), the NDEF file (2-byte NLEN + message), and the
-  Capability Container. `Type4Tag` is the APDU state machine: SELECT application →
-  SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
-- `NdefHostApduService.kt`: a thin `HostApduService` that hands APDUs to `Type4Tag` and
-  rebuilds the NDEF file from preferences on each application SELECT.
-- `MainActivity.kt`: the settings screen, built only from framework widgets.
+- `TagItem.kt`: pure Kotlin content types, input validation, URI generation, and vCard 3.0
+  encoding (UTF-8, escaped values, CRLF endings, no line folding).
+- `NdefMessage.kt`: pure Kotlin URI and MIME record encoders, using short records through
+  255 payload bytes and four-byte lengths beyond that. The NDEF file adds a two-byte NLEN;
+  the Capability Container advertises a 1024-byte maximum. `Type4Tag` is the APDU state
+  machine: SELECT application → SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
+- `ItemStore.kt`: saved items as JSON in the existing private `pockettag` preferences
+  (`items_v1` and `active_item_id`). Pure `ItemJson` and `ItemState` handle mapping,
+  migration, and selection. The legacy URL is retained; serving and trace settings stay
+  in the same preferences file.
+- `NdefHostApduService.kt`: hands APDUs to `Type4Tag` and snapshots the active item's NDEF
+  file on each application SELECT. Disabled serving, no selection, or an encoding error
+  returns `6A82` (application not found).
+- `MainActivity.kt` and `EditItemActivity.kt`: selector and type-specific editor, built
+  only from framework widgets.
 - `res/xml/apduservice.xml`: registers the NDEF application AID `D2760000850101`.
 
 The tag is read-only: the CC file denies write access.
 
 Permissions: CI runs `aapt dump permissions` on every build and fails if
 `android.permission.INTERNET` appears. The only permission the app requests is
-`android.permission.NFC`. Output for 0.1.0:
+`android.permission.NFC`. Output for 0.2.0:
 
 ```
 package: dev.ppiankov.pockettag
@@ -118,22 +138,23 @@ uses-permission: name='android.permission.NFC'
 
 ## Known limitations
 
-- URLs are limited to 255 bytes after prefix compression (one short NDEF record).
+- The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
+  of NDEF message, including record headers. Large contact cards or messages may not fit.
+- iPhone background tag reading does not act on contact cards. Reader behaviour varies
+  by content type and installed apps; the additional types await device verification.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.
 - Phones whose NFC controller has its own built-in Type 4 tag can answer readers themselves,
   so PocketTag never sees the request; the Sony Xperia XQ-BC72 is one. Results per device are
   in the table above. If a tap fails, switch on **Show last tap details**: the trace shows whether any
-  command arrived. The trace stays on the phone and holds only the URL you chose.
+  command arrived. The trace stays on the phone and can include bytes of the selected content.
 - On the Galaxy S25 the first tap shows a chooser for which service should answer, so a read
   takes two taps.
 
 ## Roadmap
 
 - Record results for the device pairs in the table.
-- Several saved items to choose from: web link, contact card (vCard), WhatsApp chat, call,
-  email, SMS.
 - Opt-in chip mode for phones like the Sony above: write the selected item into the NFC
   controller's built-in tag.
 - Show the selected item as a QR code for phones without NFC.
