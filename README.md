@@ -52,7 +52,8 @@ and HCE support.
 1. Open PocketTag, tap **Add**, and choose a content type.
 2. Enter a label and the fields for that type, then tap **Save**. Invalid or oversized items
    show an inline error and are not saved.
-3. Tap a saved item to select it. Hold an item to edit it or confirm its deletion.
+3. Tap a saved item to select it. **Press and hold** an item to edit it or delete it; there is
+   no separate edit button.
 4. Make sure NFC is on in system settings and **Serve tag** is switched on.
 5. Unlock your phone and hold its back against the back of the other phone. The reader
    handles the selected content according to its NFC settings and installed apps.
@@ -68,19 +69,21 @@ installation starts with the same default web link.
 
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
-observed below, not promised.
+observed below, not promised. On the Huawei P40 the phone must be unlocked; PocketTag does
+not need to be the app on screen.
 
 ## Tested devices
 
 | Tag (PocketTag) | Reader | Result |
 |---|---|---|
 | Huawei P40 (v0.1 URL) | Samsung Galaxy S25 | **works**: full Type 4 read, reader opens the URL |
-| Huawei P40 (v0.2 web link) | Samsung Galaxy S25 | not yet tested |
-| Huawei P40 (v0.2 contact card) | Samsung Galaxy S25 | not yet tested |
-| Huawei P40 (v0.2 WhatsApp chat) | Samsung Galaxy S25 | not yet tested |
-| Huawei P40 (v0.2 call) | Samsung Galaxy S25 | not yet tested |
-| Huawei P40 (v0.2 email) | Samsung Galaxy S25 | not yet tested |
-| Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | not yet tested |
+| Huawei P40 (v0.2 web link) | Samsung Galaxy S25 | **works**: browser opens; a v0.1 URL carries over as the selected web link |
+| Huawei P40 (v0.2 contact card) | Samsung Galaxy S25 | **works**: the contact is offered and added to the phone book |
+| Huawei P40 (v0.2 WhatsApp chat) | Samsung Galaxy S25 | **works**: WhatsApp opens the chat |
+| Huawei P40 (v0.2 call) | Samsung Galaxy S25 | **works**: dialer opens with the number |
+| Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
+| Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
+| Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
 | Sony Xperia XQ-BC72 (Android 13) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13) | Huawei phone | fails: reader reports "Empty tag" |
 | Samsung Galaxy S25 | Huawei P40 | **works**, two taps: the S25 asks which tag service to use on the first tap |
@@ -157,12 +160,12 @@ uses-permission: name='android.permission.NFC'
   command arrived. The trace stays on the phone and can include bytes of the selected content.
 - On the Galaxy S25 the first tap shows a chooser for which service should answer, so a read
   takes two taps.
+- WhatsApp shows its own safety warning when the chat number is not in the reader's
+  contacts. That is WhatsApp's behaviour, not PocketTag's.
 
 ## Roadmap
 
 - Record results for the device pairs in the table.
-- Several saved items to choose from: web link, contact card (vCard), WhatsApp chat, call,
-  email, SMS.
 - Opt-in chip mode for phones like the Sony above: write the selected item into the NFC
   controller's built-in tag.
 - Show the selected item as a QR code for phones without NFC.
