@@ -12,7 +12,7 @@ A tiny Android app that makes the phone act like an NFC sticker carrying your se
 web link, contact card (vCard), WhatsApp chat, call, email, or SMS link. It emulates an NFC
 Forum Type 4 Tag through Android host card emulation (HCE) and serves one NDEF record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
-and NFC support.
+and NFC support. For links, the other phone needs nothing installed.
 
 Keep several saved items and pick one to share. Everything lives in the app's private
 storage on your phone. Contact details are entered manually.
@@ -61,7 +61,9 @@ Switch **Serve tag** off to stop answering readers. Selection and edits take eff
 next tap. Deleting the selected item selects the first remaining item; deleting the last
 item leaves **No item selected**, and readers see no tag.
 
-On upgrading from v0.1, the existing URL becomes the selected **Web link** item. A fresh
+Upgrading from v0.1 preserves the selected link. Web, call, email, and SMS links use their
+matching types when the original link can be preserved exactly. Other values appear as
+**Saved link**: you can select, edit, or delete them, but cannot add them directly. A fresh
 installation starts with the same default web link.
 
 The service is registered without requiring an unlocked device; whether a given phone
@@ -70,12 +72,15 @@ observed below, not promised.
 
 ## Tested devices
 
-These are the existing URL results. Checks of all six content types from the P40 to the
-S25 are pending operator review; the reviewer will record those results here.
-
 | Tag (PocketTag) | Reader | Result |
 |---|---|---|
-| Huawei P40 | Samsung Galaxy S25 | **works**: full Type 4 read, reader opens the URL |
+| Huawei P40 (v0.1 URL) | Samsung Galaxy S25 | **works**: full Type 4 read, reader opens the URL |
+| Huawei P40 (v0.2 web link) | Samsung Galaxy S25 | not yet tested |
+| Huawei P40 (v0.2 contact card) | Samsung Galaxy S25 | not yet tested |
+| Huawei P40 (v0.2 WhatsApp chat) | Samsung Galaxy S25 | not yet tested |
+| Huawei P40 (v0.2 call) | Samsung Galaxy S25 | not yet tested |
+| Huawei P40 (v0.2 email) | Samsung Galaxy S25 | not yet tested |
+| Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | not yet tested |
 | Sony Xperia XQ-BC72 (Android 13) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13) | Huawei phone | fails: reader reports "Empty tag" |
 | Samsung Galaxy S25 | Huawei P40 | **works**, two taps: the S25 asks which tag service to use on the first tap |
@@ -116,8 +121,9 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
   machine: SELECT application → SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
 - `ItemStore.kt`: saved items as JSON in the existing private `pockettag` preferences
   (`items_v1` and `active_item_id`). Pure `ItemJson` and `ItemState` handle mapping,
-  migration, and selection. The legacy URL is retained; serving and trace settings stay
-  in the same preferences file.
+  migration, and selection. Unreadable JSON entries are retained unchanged in stored
+  order but are not displayed or served. The legacy URL is retained; serving and trace
+  settings stay in the same preferences file.
 - `NdefHostApduService.kt`: hands APDUs to `Type4Tag` and snapshots the active item's NDEF
   file on each application SELECT. Disabled serving, no selection, or an encoding error
   returns `6A82` (application not found).
@@ -141,7 +147,7 @@ uses-permission: name='android.permission.NFC'
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
   of NDEF message, including record headers. Large contact cards or messages may not fit.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
-  by content type and installed apps; the additional types await device verification.
+  by content type and installed apps; see the tested-devices table.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.
@@ -169,8 +175,6 @@ The mechanism is well known. PocketTag was written after studying these projects
 
 PocketTag's code is a small independent implementation of the NFC Forum Type 4 Tag
 specification; it does not bundle any of the above.
-
-Built with AI agents under a Hiveram work-order record (1 work order).
 
 ## License
 

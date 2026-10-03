@@ -16,22 +16,43 @@ sealed class TagItem(id: String, label: String) {
 
     abstract fun ndefMessage(): ByteArray
 
+    // WO-3: migration compares the generated URI before accepting a typed replacement.
+    open val uri: String? get() = null
+
     // WO-3: explicit storage names keep JSON independent of Kotlin class names.
     enum class Type(val storageName: String) {
         LINK("link"), CONTACT("contact"), WHATSAPP("whatsapp"),
-        CALL("call"), EMAIL("email"), SMS("sms");
+        CALL("call"), EMAIL("email"), SMS("sms"), RAW("raw");
+
+        companion object {
+            // WO-3: legacy links remain editable but cannot be created from the Add menu.
+            val creatableTypes: List<Type> = entries.filterNot { it == RAW }
+        }
     }
 
     // WO-3: web links are restricted to the schemes readers can open as web pages.
-    class Link(label: String, val url: String, id: String = UUID.randomUUID().toString()) :
+    class Link(label: String, url: String, id: String = UUID.randomUUID().toString()) :
         TagItem(id, label) {
         override val type = Type.LINK
+        val url: String = url.trim() // WO-3: remove pasted surrounding whitespace before validation.
+        override val uri: String get() = url // WO-3: preserve the exact generated URI for migration.
         init {
-            require(url.startsWith("https://") || url.startsWith("http://")) {
+            require(this.url.startsWith("https://") || this.url.startsWith("http://")) {
                 "Web link must start with http:// or https://."
             }
         }
-        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(url)
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
+    }
+
+    // WO-3: preserve otherwise unrepresentable legacy values without changing what a tap serves.
+    class Raw(label: String, uri: String, id: String = UUID.randomUUID().toString()) :
+        TagItem(id, label) {
+        override val type = Type.RAW
+        override val uri: String = uri.trim() // WO-3: the legacy URI is stored without reinterpretation.
+        init {
+            require(this.uri.isNotEmpty()) { "Link is empty; not saved." }
+        }
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
     }
 
     // WO-3: wa.me requires digits without the international plus sign.
@@ -39,7 +60,8 @@ sealed class TagItem(id: String, label: String) {
         TagItem(id, label) {
         override val type = Type.WHATSAPP
         val number: String = phoneNumber(number).removePrefix("+")
-        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord("https://wa.me/$number")
+        override val uri: String get() = "https://wa.me/$number" // WO-3: canonical chat URI.
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
     }
 
     // WO-3: telephone links retain a leading plus for international dialling.
@@ -47,25 +69,28 @@ sealed class TagItem(id: String, label: String) {
         TagItem(id, label) {
         override val type = Type.CALL
         val number: String = phoneNumber(number)
-        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord("tel:$number")
+        override val uri: String get() = "tel:$number" // WO-3: exact-match migration candidate.
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
     }
 
     // WO-3: optional query text is percent-encoded, never appended as URI syntax.
     class Email(
         label: String,
-        val address: String,
+        address: String,
         val subject: String? = null,
         id: String = UUID.randomUUID().toString(),
     ) : TagItem(id, label) {
         override val type = Type.EMAIL
+        val address: String = address.trim() // WO-3: trim addresses before validating and storing.
         init {
-            require(address.count { it == '@' } == 1 &&
-                address.substringBefore('@').isNotEmpty() && address.substringAfter('@').isNotEmpty()) {
+            require(this.address.count { it == '@' } == 1 &&
+                this.address.substringBefore('@').isNotEmpty() && this.address.substringAfter('@').isNotEmpty()) {
                 "Email must contain one @ with text on both sides."
             }
         }
-        override fun ndefMessage(): ByteArray =
-            NdefMessage.uriRecord("mailto:$address" + query("subject", subject))
+        // WO-3: use the same query encoding for migration comparison and the served record.
+        override val uri: String get() = "mailto:$address" + query("subject", subject)
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
     }
 
     // WO-3: SMS uses the same number rules as calls and encodes the optional body.
@@ -77,7 +102,9 @@ sealed class TagItem(id: String, label: String) {
     ) : TagItem(id, label) {
         override val type = Type.SMS
         val number: String = phoneNumber(number)
-        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord("sms:$number" + query("body", body))
+        // WO-3: a typed migration is safe only when this URI matches the legacy text exactly.
+        override val uri: String get() = "sms:$number" + query("body", body)
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
     }
 
     // WO-3: one vCard record carries manually entered contact fields only.
@@ -89,11 +116,12 @@ sealed class TagItem(id: String, label: String) {
         val title: String = "",
         val phone: String = "",
         val email: String = "",
-        val url: String = "",
+        url: String = "",
         val note: String = "",
         id: String = UUID.randomUUID().toString(),
     ) : TagItem(id, label) {
         override val type = Type.CONTACT
+        val url: String = url.trim() // WO-3: URLs are trimmed; the other contact values stay as entered.
         init {
             require(givenName.isNotBlank() || familyName.isNotBlank()) {
                 "Enter a given name or family name."
@@ -125,7 +153,7 @@ sealed class TagItem(id: String, label: String) {
 
         // WO-3: strip only specified separators; reject other characters, including Unicode digits.
         fun phoneNumber(value: String): String {
-            val number = value.filterNot { it == ' ' || it == '-' || it == '(' || it == ')' }
+            val number = value.trim().filterNot { it == ' ' || it == '-' || it == '(' || it == ')' }
             val digits = number.removePrefix("+")
             require(digits.length in MIN_PHONE_DIGITS..MAX_PHONE_DIGITS && digits.all { it in '0'..'9' }) {
                 "Number must contain 7 to 15 digits, with an optional leading +."

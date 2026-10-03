@@ -49,7 +49,7 @@ class MainActivity : Activity() {
         // WO-3: toggle serving without replacing the retained legacy URL.
         findViewById<Button>(R.id.add_item).setOnClickListener { addItem() }
         enabledSwitch.setOnCheckedChangeListener { _, checked ->
-            TagPrefs.save(this, TagPrefs.url(this), checked)
+            TagPrefs.setEnabled(this, checked)
             refreshStatus(null)
         }
 
@@ -88,7 +88,8 @@ class MainActivity : Activity() {
 
     // WO-3: creation chooses a type once; editing never exposes a type picker.
     private fun addItem() {
-        val types = TagItem.Type.entries
+        // WO-3: the migration-only Saved link type is never offered for creation.
+        val types = TagItem.Type.creatableTypes
         AlertDialog.Builder(this).setTitle(R.string.add_item_title)
             .setItems(types.map { getString(it.titleResource()) }.toTypedArray()) { _, index ->
                 startActivity(Intent(this, EditItemActivity::class.java)

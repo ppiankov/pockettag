@@ -27,7 +27,9 @@ class EditItemActivity : Activity() {
         val requestedType = existing?.type ?: TagItem.Type.entries.firstOrNull {
             it.storageName == intent.getStringExtra(EXTRA_TYPE)
         }
-        if ((id != null && existing == null) || requestedType == null) {
+        // WO-3: a Saved link can only be opened as an existing migrated item.
+        if ((id != null && existing == null) || requestedType == null ||
+            (id == null && requestedType == TagItem.Type.RAW)) {
             finish()
             return
         }
@@ -54,8 +56,11 @@ class EditItemActivity : Activity() {
 
     // WO-3: only the selected type's fields are exposed in the editor.
     private fun buildFields() {
-        addField("label", R.string.item_label, existing?.label.orEmpty())
+        // WO-3: Saved link editing exposes only its link text, retaining the saved label.
+        if (type != TagItem.Type.RAW) addField("label", R.string.item_label, existing?.label.orEmpty())
         when (type) {
+            TagItem.Type.RAW -> addField("uri", R.string.field_raw_uri,
+                (existing as? TagItem.Raw)?.uri.orEmpty())
             TagItem.Type.LINK -> addField("url", R.string.field_url,
                 (existing as? TagItem.Link)?.url.orEmpty(), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
             TagItem.Type.WHATSAPP -> addField("number", R.string.field_number,
@@ -117,8 +122,10 @@ class EditItemActivity : Activity() {
     private fun save() {
         try {
             val id = existing?.id ?: UUID.randomUUID().toString()
-            val label = value("label")
+            // WO-3: preserve the label while editing the migration-only link field.
+            val label = if (type == TagItem.Type.RAW) requireNotNull(existing).label else value("label")
             val item = when (type) {
+                TagItem.Type.RAW -> TagItem.Raw(label, value("uri"), id)
                 TagItem.Type.LINK -> TagItem.Link(label, value("url"), id)
                 TagItem.Type.WHATSAPP -> TagItem.WhatsApp(label, value("number"), id)
                 TagItem.Type.CALL -> TagItem.Call(label, value("number"), id)
@@ -165,4 +172,5 @@ internal fun TagItem.Type.titleResource(): Int = when (this) {
     TagItem.Type.CALL -> R.string.type_call
     TagItem.Type.EMAIL -> R.string.type_email
     TagItem.Type.SMS -> R.string.type_sms
+    TagItem.Type.RAW -> R.string.type_raw // WO-3: distinguish preserved legacy links.
 }

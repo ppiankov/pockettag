@@ -143,7 +143,7 @@ class TagItemTest {
         val items = sampleItems() + listOf(TagItem.Email("No subject", "b@example.com"),
             TagItem.Sms("No body", "1234567"), TagItem.Contact("Minimal", familyName = "Example"))
         val json = ItemJson.encode(items)
-        val decoded = ItemJson.decode(json)
+        val decoded = ItemJson.decode(json).items
         assertEquals(items.size, decoded.size)
         assertEquals(json, ItemJson.encode(decoded))
         items.zip(decoded).forEach { (before, after) ->
@@ -155,7 +155,7 @@ class TagItemTest {
     }
 
     @Test
-    fun decodeSkipsMalformedAndUnknownEntriesButRetainsValidNeighbours() {
+    fun decodeHidesMalformedAndUnknownEntriesButRetainsValidNeighbours() {
         val valid = ItemJson.encode(sampleItems()).removePrefix("[").removeSuffix("]")
         val malformed = """null,42,"text",{},
             {"id":"x","type":"future","label":"Unknown"},
@@ -164,9 +164,9 @@ class TagItemTest {
             {"id":"x","type":"link","label":42,"url":"https://example.com"},
             {"id":"x","type":"sms","label":"Bad body","number":"1234567","body":42},
             {"id":"x","type":"contact","label":"No name"}"""
-        assertEquals(6, ItemJson.decode("[$malformed,$valid]").size)
+        assertEquals(6, ItemJson.decode("[$malformed,$valid]").items.size)
         for (badJson in listOf("not json", "{\"items\":[]}", "[")) {
-            assertTrue(ItemJson.decode(badJson).isEmpty())
+            assertTrue(ItemJson.decode(badJson).items.isEmpty())
         }
     }
 
@@ -246,6 +246,139 @@ class TagItemTest {
         val huge = TagItem.Link("Huge", "https://example.com/" + "a".repeat(1024))
         state = ItemState(listOf(huge), huge.id)
         assertArrayEquals(hex("6A82"), tag.process(select))
+    }
+
+    @Test
+    fun migrationMapsSchemesOnlyWhenTheGeneratedUriIsExact() {
+        val cases = listOf(
+            Triple("https://example.com", TagItem.Type.LINK, "Web link"),
+            Triple("tel:+60123456789", TagItem.Type.CALL, "Phone"),
+            Triple("mailto:a@example.com", TagItem.Type.EMAIL, "Email"),
+            Triple("mailto:a@example.com?subject=Hi%20there", TagItem.Type.EMAIL, "Email"),
+            Triple("mailto:a@example.com?subject=Hi+there", TagItem.Type.RAW, "Saved link"),
+            Triple("mailto:a@example.com?cc=b@example.com", TagItem.Type.RAW, "Saved link"),
+            Triple("sms:+60123456789?body=Hello", TagItem.Type.SMS, "SMS"),
+            Triple("tel:+60 12-345 6789", TagItem.Type.RAW, "Saved link"),
+            Triple("geo:1,2", TagItem.Type.RAW, "Saved link"),
+            Triple("example.com", TagItem.Type.RAW, "Saved link"),
+            Triple("https://" + "a".repeat(292), TagItem.Type.LINK, "Web link"),
+            Triple(null, TagItem.Type.LINK, "Web link"),
+            Triple("", TagItem.Type.LINK, "Web link"),
+        )
+        for ((legacy, type, label) in cases) {
+            val state = ItemState.load(null, null, legacy)
+            val item = requireNotNull(state.activeItem)
+            val original = legacy?.takeIf { it.isNotEmpty() } ?: TagPrefs.DEFAULT_URL
+            assertEquals(type, item.type)
+            assertEquals(label, item.label)
+            assertEquals(item.id, state.activeItemId)
+            assertArrayEquals(NdefMessage.ndefFile(original), NdefMessage.ndefFile(item.ndefMessage()))
+            if (legacy == "mailto:a@example.com?subject=Hi%20there") {
+                assertEquals("Hi there", (item as TagItem.Email).subject)
+            }
+            if (legacy?.length == 300) assertEquals(0xC1.toByte(), item.ndefMessage()[0])
+        }
+    }
+
+    @Test
+    fun migrationNeverThrowsForThirtyAdversarialNonemptyValues() {
+        val adversarial = listOf(
+            "\u0000", "mailto:", "tel:", "sms:?body=", "こんにちは", "x".repeat(1100), "%",
+            "mailto:a@example.com?subject=%", "mailto:a@example.com?subject=%GG",
+            "mailto:a@example.com?subject=%C3", "mailto:a@example.com?subject=a+b",
+            "mailto:a@example.com?cc=b@example.com", "mailto:a@example.com?subject=a&cc=b@example.com",
+            "mailto:@", "mailto:a@@example.com", "tel:+", "tel:++60123456789",
+            "tel:+60 12-345 6789", "tel:１２３４５６７", "tel:123\t4567", "sms:",
+            "sms:1234567?body=%", "sms:1234567?body=%GG", "sms:1234567?body=a&x=b",
+            "sms:1234567?body=", "geo:1,2", "example.com", "HTTP://example.com", "\uD800", " \t\n",
+        )
+        assertEquals(30, adversarial.size)
+        for (legacy in adversarial) {
+            assertTrue(legacy.isNotEmpty())
+            val state = ItemState.load(null, null, legacy)
+            assertEquals(1, state.items.size)
+            assertEquals(state.items.single().id, state.activeItemId)
+        }
+    }
+
+    @Test
+    fun rawRoundTripsButIsNotOfferedForCreationAndEditsTrimItsText() {
+        val raw = TagItem.Raw("Saved link", "  geo:1,2  ")
+        val json = ItemJson.encode(listOf(raw))
+        val restored = ItemJson.decode(json).items.single() as TagItem.Raw
+        assertEquals("raw", restored.type.storageName)
+        assertEquals("geo:1,2", restored.uri)
+        assertEquals(raw.id, restored.id)
+        assertArrayEquals(NdefMessage.ndefFile("geo:1,2"), NdefMessage.ndefFile(restored.ndefMessage()))
+        assertEquals(json, ItemJson.encode(listOf(restored)))
+        assertEquals(listOf(TagItem.Type.LINK, TagItem.Type.CONTACT, TagItem.Type.WHATSAPP,
+            TagItem.Type.CALL, TagItem.Type.EMAIL, TagItem.Type.SMS), TagItem.Type.creatableTypes)
+        assertFalse(TagItem.Type.creatableTypes.contains(TagItem.Type.RAW))
+        val edited = ItemState(listOf(raw), raw.id)
+            .save(TagItem.Raw(raw.label, " \texample.com\n", raw.id)).activeItem as TagItem.Raw
+        assertEquals("example.com", edited.uri)
+        assertEquals("Saved link", edited.label)
+        assertThrows(IllegalArgumentException::class.java) { TagItem.Raw("Saved link", " \t\n") }
+    }
+
+    @Test
+    fun unreadableEntriesSurviveSelectionEditingAndDeletionByteIdentically() {
+        val first = TagItem.Link("First", "https://example.com/first", "first")
+        val second = TagItem.Link("Second", "https://example.com/second", "second")
+        val unknown = """{ "id":"future", "type":"future", "label":"Later", "nested":[{"text":"},]"}], "number":1.2300, "escaped":"\u0061" }"""
+        val wrongType = """{ "id":42, "type":"link", "label":"Wrong ID", "url":"https://example.com" }"""
+        val invalid = """{ "id":"invalid", "type":"link", "label":"Invalid", "url":"ftp://example.com" }"""
+        val firstJson = ItemJson.encode(listOf(first)).removePrefix("[").removeSuffix("]")
+        val secondJson = ItemJson.encode(listOf(second)).removePrefix("[").removeSuffix("]")
+        val original = "[$unknown,$firstJson,$wrongType,$secondJson,$invalid]"
+        val loaded = ItemState.load(original, first.id, null)
+        assertEquals(listOf(first.id, second.id), loaded.items.map { it.id })
+        assertEquals(original, ItemJson.encode(loaded.document))
+        val selected = loaded.select(second.id)
+        assertEquals(original, ItemJson.encode(selected.document))
+        val edited = TagItem.Link("Edited", "https://example.com/edited", first.id)
+        val editedJson = ItemJson.encode(listOf(edited)).removePrefix("[").removeSuffix("]")
+        val saved = selected.save(edited)
+        assertEquals("[$unknown,$editedJson,$wrongType,$secondJson,$invalid]", ItemJson.encode(saved.document))
+        val deleted = saved.delete(second.id)
+        assertEquals("[$unknown,$editedJson,$wrongType,$invalid]", ItemJson.encode(deleted.document))
+        assertEquals(first.id, deleted.activeItemId)
+        assertEquals(listOf(first.id), ItemJson.decode(ItemJson.encode(deleted.document)).items.map { it.id })
+        val added = deleted.save(second)
+        assertEquals("[$unknown,$editedJson,$wrongType,$invalid,$secondJson]", ItemJson.encode(added.document))
+    }
+
+    @Test
+    fun unreadableValuesAndEscapedDelimitersArePreservedWithoutBeingServed() {
+        val json = """[null,42,"text",[1,{"text":",]}"}],{"type":"future","text":"a\\\"},[b"}]"""
+        val state = ItemState.load(json, "future", null)
+        assertTrue(state.items.isEmpty())
+        assertNull(state.activeItemId)
+        assertNull(state.ndefFile(true))
+        assertEquals(json, ItemJson.encode(state.document))
+    }
+
+    @Test
+    fun pastedFieldsAreTrimmedWithoutChangingFreeText() {
+        assertEquals("https://example.com", TagItem.Link("Web", " \thttps://example.com\n").url)
+        assertEquals("a@example.com", TagItem.Email("Email", " \ta@example.com\n", " Subject ").address)
+        assertEquals(" Subject ", TagItem.Email("Email", "a@example.com", " Subject ").subject)
+        assertEquals("60123456789", TagItem.WhatsApp("Chat", "\t +60 12-345 6789 \n").number)
+        assertEquals("+60123456789", TagItem.Call("Phone", "\t +60 12-345 6789 \n").number)
+        val sms = TagItem.Sms("SMS", "\t +60 12-345 6789 \n", " Body \n")
+        assertEquals("+60123456789", sms.number)
+        assertEquals(" Body \n", sms.body)
+        val contact = TagItem.Contact("Contact", " Given ", " Family ", " Org ", " Title ",
+            " Phone ", " Email ", " \thttps://example.com\n", " Note \n")
+        assertEquals("https://example.com", contact.url)
+        assertEquals(" Given ", contact.givenName)
+        assertEquals(" Family ", contact.familyName)
+        assertEquals(" Org ", contact.org)
+        assertEquals(" Title ", contact.title)
+        assertEquals(" Phone ", contact.phone)
+        assertEquals(" Email ", contact.email)
+        assertEquals(" Note \n", contact.note)
+        assertEquals("https://example.com", ItemState.load(null, null, " \thttps://example.com\n").activeItem?.uri)
     }
 
     private fun sampleItems(): List<TagItem> = listOf(

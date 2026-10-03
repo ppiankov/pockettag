@@ -31,6 +31,8 @@
     <string name="type_call">Call</string>
     <string name="type_email">Email</string>
     <string name="type_sms">SMS</string>
+    <string name="type_raw">Saved link</string>
+    <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>
     <string name="field_address">Email address</string>
