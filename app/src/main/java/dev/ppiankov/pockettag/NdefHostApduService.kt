@@ -12,7 +12,7 @@ import java.util.Date
 object TagPrefs {
     private const val FILE = "pockettag"
     private const val KEY_URL = "url"
-    private const val KEY_ENABLED = "enabled"
+    internal const val KEY_ENABLED = "enabled" // WO-15: booth observers share the serving preference key.
     private const val KEY_TRACE = "last_trace"
     private const val KEY_SHOW_TRACE = "show_trace"
     const val DEFAULT_URL = "https://obstalabs.dev"

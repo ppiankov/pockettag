@@ -37,7 +37,7 @@ class BoothActivity : Activity() {
     // WO-15: diagnostics writes do not affect booth content or readiness.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == ItemStore.ITEMS_KEY || key == ItemStore.ACTIVE_ID_KEY ||
-            key == ENABLED_KEY || key == ItemStore.TAP_COUNTS_KEY) {
+            key == TagPrefs.KEY_ENABLED || key == ItemStore.TAP_COUNTS_KEY) {
             runOnUiThread { if (resumed) refresh() }
         }
     }
@@ -133,6 +133,5 @@ class BoothActivity : Activity() {
 
     companion object {
         private const val SENT_FLASH_MS = 2000L // WO-15: keep each completed-read confirmation visible for two seconds.
-        private const val ENABLED_KEY = "enabled" // WO-15: observe the existing Serve tag preference without changing storage.
     }
 }

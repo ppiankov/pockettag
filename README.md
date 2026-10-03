@@ -98,7 +98,7 @@ not need to be the app on screen.
 | Huawei P40 (booth mode, past screen timeout) | Samsung Galaxy S25 | not yet tested |
 | Samsung Galaxy S25 (booth mode) | Huawei P40 | not yet tested |
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
-| any | iPhone (background tag reading) | not yet tested |
+| Huawei P40 (v0.2) | iPhone 16, iOS 26.6.1 (background tag reading) | **works** for web link, WhatsApp, call, email, SMS; contact card: no response |
 
 The Sony failure is below the app. Its NFC controller has a built-in Type 4 tag (an NXP
 "T4T NFCEE"), switched on in the vendor configuration (`NXP_T4T_NFCEE_ENABLE=0x01` in
