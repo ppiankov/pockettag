@@ -26,6 +26,12 @@
             android:name=".EditItemActivity"
             android:exported="false" />
 
+        <!-- WO-15: booth mode is an internal, full-screen sharing surface. -->
+        <activity
+            android:name=".BoothActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar.Fullscreen" />
+
         <service
             android:name=".NdefHostApduService"
             android:exported="true"

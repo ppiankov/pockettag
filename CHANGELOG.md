@@ -9,6 +9,8 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - Per-item counts of completed NFC reads, with a reset action and local-only storage.
+- Booth mode with a full-screen sharing display, screen-on handling, readiness warnings,
+  and brief feedback after completed reads.
 
 ## [0.2.0] - 2026-10-03
 

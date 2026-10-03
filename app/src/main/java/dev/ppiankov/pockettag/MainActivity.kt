@@ -3,6 +3,7 @@ package dev.ppiankov.pockettag
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
@@ -50,6 +51,10 @@ class MainActivity : Activity() {
 
         // WO-3: toggle serving without replacing the retained legacy URL.
         findViewById<Button>(R.id.add_item).setOnClickListener { addItem() }
+        // WO-15: booth mode shares the saved selection without changing it.
+        findViewById<Button>(R.id.booth_mode).setOnClickListener {
+            startActivity(Intent(this, BoothActivity::class.java))
+        }
         enabledSwitch.setOnCheckedChangeListener { _, checked ->
             TagPrefs.setEnabled(this, checked)
             refreshStatus(null)
@@ -66,7 +71,8 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         // While the app is open, claim the NDEF AID even if another app also registered it.
-        cardEmulation()?.setPreferredService(this, service)
+        // WO-15: an unavailable preferred route must not prevent opening the selector.
+        runCatching { cardEmulation()?.setPreferredService(this, service) }
         TagPrefs.listen(this, prefsListener)
         // WO-3: edits return through onResume, including deletion of the last item.
         refreshItems()
@@ -75,17 +81,10 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
-        cardEmulation()?.unsetPreferredService(this)
+        // WO-15: routing failures must not interrupt normal activity cleanup.
+        runCatching { cardEmulation()?.unsetPreferredService(this) }
         TagPrefs.unlisten(this, prefsListener)
         super.onPause()
-    }
-
-    private fun cardEmulation(): CardEmulation? {
-        val adapter = NfcAdapter.getDefaultAdapter(this) ?: return null
-        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
-            return null
-        }
-        return CardEmulation.getInstance(adapter)
     }
 
     // WO-3: creation chooses a type once; editing never exposes a type picker.
@@ -157,4 +156,18 @@ class MainActivity : Activity() {
         trace.visibility = if (show) View.VISIBLE else View.GONE
         if (show) trace.text = TagPrefs.lastTrace(this) ?: getString(R.string.trace_none)
     }
+}
+
+// WO-15: both foreground screens share the same guarded HCE lookup.
+internal fun Context.cardEmulation(): CardEmulation? = try {
+    val adapter = NfcAdapter.getDefaultAdapter(this)
+    if (adapter == null ||
+        !packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION)) {
+        null
+    } else {
+        CardEmulation.getInstance(adapter)
+    }
+} catch (_: Exception) {
+    // WO-15: a device routing exception leaves the screen usable.
+    null
 }
