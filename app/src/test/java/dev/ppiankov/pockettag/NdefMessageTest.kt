@@ -148,3 +148,93 @@ class Type4TagTest {
         assertArrayEquals(Type4Constants.SW_WRONG_P1P2, tag.process(hex("00A4")))
     }
 }
+
+// WO-12: completion observes a reader session without changing any APDU response bytes.
+class Type4ReadCompletionTest {
+    private val selectApp = hex("00A4040007D276000085010100")
+    private val selectCc = hex("00A4000C02E103")
+    private val selectNdef = hex("00A4000C02E104")
+    private val file = NdefMessage.ndefFile("https://example.com")
+    private var completions = 0
+    private val tag = Type4Tag({ file }, { completions++ })
+
+    @Test
+    fun fullReadReportsOneCompletionWithUnchangedBytes() {
+        assertArrayEquals(hex("9000"), tag.process(selectApp))
+        assertArrayEquals(hex("9000"), tag.process(selectNdef))
+        assertArrayEquals(file.copyOfRange(0, 2) + hex("9000"), tag.process(read(0, 2)))
+        assertEquals(0, completions)
+        assertArrayEquals(file.copyOfRange(2, file.size) + hex("9000"), tag.process(read(2, 255)))
+        assertEquals(1, completions)
+    }
+
+    @Test
+    fun ccOnlyDoesNotCompleteTheSession() {
+        tag.process(selectApp)
+        tag.process(selectCc)
+        assertArrayEquals(Type4Constants.CC_FILE + hex("9000"), tag.process(read(0, 255)))
+        assertEquals(0, completions)
+    }
+
+    @Test
+    fun nlenOnlyDoesNotCompleteTheSession() {
+        tag.process(selectApp)
+        tag.process(selectNdef)
+        tag.process(read(0, 2))
+        assertEquals(0, completions)
+    }
+
+    @Test
+    fun repeatedReadsAndApplicationSelectsCountOnceBeforeDeactivation() {
+        tag.process(selectApp)
+        tag.process(selectNdef)
+        repeat(2) { tag.process(read(0, 255)) }
+        tag.process(selectApp)
+        tag.process(selectNdef)
+        tag.process(read(0, 255))
+        assertEquals(1, completions)
+    }
+
+    @Test
+    fun resetAllowsTheNextSessionToComplete() {
+        repeat(2) {
+            tag.process(selectApp)
+            tag.process(selectNdef)
+            tag.process(read(0, 255))
+            tag.reset()
+        }
+        assertEquals(2, completions)
+    }
+
+    @Test
+    fun refusedApplicationCannotReportCompletion() {
+        val unavailable = Type4Tag({ null }, { completions++ })
+        assertArrayEquals(hex("6A82"), unavailable.process(selectApp))
+        assertArrayEquals(hex("6A82"), unavailable.process(selectNdef))
+        assertArrayEquals(hex("6A82"), unavailable.process(read(0, 255)))
+        assertEquals(0, completions)
+    }
+
+    @Test
+    fun emptyEofAndPastEndReadsDoNotReportCompletion() {
+        tag.process(selectApp)
+        tag.process(selectNdef)
+        assertArrayEquals(hex("9000"), tag.process(read(file.size, 1)))
+        assertArrayEquals(hex("6B00"), tag.process(read(file.size + 1, 1)))
+        assertEquals(0, completions)
+    }
+
+    @Test
+    fun aReadMustReachTheLastNdefByteToComplete() {
+        tag.process(selectApp)
+        tag.process(selectNdef)
+        tag.process(read(2, 1))
+        assertEquals(0, completions)
+        assertArrayEquals(byteArrayOf(file.last()) + hex("9000"), tag.process(read(file.lastIndex, 1)))
+        assertEquals(1, completions)
+    }
+
+    private fun read(offset: Int, length: Int): ByteArray = byteArrayOf(
+        0, 0xB0.toByte(), (offset ushr 8).toByte(), offset.toByte(), length.toByte(),
+    )
+}

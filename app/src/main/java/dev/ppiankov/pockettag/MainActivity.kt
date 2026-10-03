@@ -28,7 +28,9 @@ class MainActivity : Activity() {
     // WO-3: content changes refresh selection; APDU trace writes only refresh diagnostics.
     private val prefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key -> runOnUiThread {
-            if (key == ItemStore.ITEMS_KEY || key == ItemStore.ACTIVE_ID_KEY) {
+            // WO-12: a completed read changes row counts without changing the selected content.
+            if (key == ItemStore.ITEMS_KEY || key == ItemStore.ACTIVE_ID_KEY ||
+                key == ItemStore.TAP_COUNTS_KEY) {
                 refreshItems()
                 refreshStatus(null)
             }
@@ -100,10 +102,15 @@ class MainActivity : Activity() {
     // WO-3: every row reflects persisted selection and supports tap/select or hold/edit.
     private fun refreshItems() {
         val state = store.load()
+        // WO-12: load counters once for the current stored-order list.
+        val counts = store.tapCounts()
         items.removeAllViews()
         state.items.forEach { item ->
             items.addView(RadioButton(this).apply {
                 text = getString(R.string.item_row, item.label, getString(item.type.titleResource()))
+                // WO-12: zero counts do not add noise to a newly created item's row.
+                val count = counts[item.id] ?: 0
+                if (count > 0) append("\n" + resources.getQuantityString(R.plurals.tap_count, count, count))
                 isChecked = item.id == state.activeItemId
                 setOnClickListener {
                     store.select(item.id)

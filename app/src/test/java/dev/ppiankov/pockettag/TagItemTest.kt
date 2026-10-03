@@ -490,6 +490,132 @@ class TagItemTest {
         assertEquals(1, missing.editCount)
     }
 
+    @Test
+    fun tapCountsIncrementResetAndSurviveAStoreRestartWithoutChangingItems() {
+        val first = TagItem.Link("First", "https://example.com/first", "first")
+        val second = TagItem.Link("Second", "https://example.com/second", "second")
+        val json = " \n" + ItemJson.encode(listOf(first, second)) + "\n "
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to json,
+            ItemStore.ACTIVE_ID_KEY to second.id))
+        val store = ItemStore(prefs.preferences)
+        assertTrue(store.tapCounts().isEmpty())
+        store.incrementTapCount(first.id)
+        store.incrementTapCount(first.id)
+        store.incrementTapCount(second.id)
+        assertEquals(mapOf(first.id to 2, second.id to 1), store.tapCounts())
+        val restarted = ItemStore(prefs.preferences)
+        assertEquals(store.tapCounts(), restarted.tapCounts())
+        restarted.resetTapCount(first.id)
+        assertEquals(mapOf(first.id to 0, second.id to 1), restarted.tapCounts())
+        assertEquals(json, prefs.values[ItemStore.ITEMS_KEY])
+        assertEquals(second.id, prefs.values[ItemStore.ACTIVE_ID_KEY])
+        assertEquals(4, prefs.editCount)
+    }
+
+    @Test
+    fun deletionDropsOnlyThatItemsCountInTheSamePreferenceEdit() {
+        val first = TagItem.Link("First", "https://example.com/first", "first")
+        val second = TagItem.Link("Second", "https://example.com/second", "second")
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to ItemJson.encode(listOf(first, second)),
+            ItemStore.ACTIVE_ID_KEY to first.id, ItemStore.TAP_COUNTS_KEY to "{\"first\":3,\"second\":2}"))
+        val store = ItemStore(prefs.preferences)
+        store.delete(first.id)
+        assertEquals(1, prefs.editCount)
+        assertEquals(listOf(second.id), store.load().items.map { it.id })
+        assertEquals(second.id, store.load().activeItemId)
+        assertEquals(mapOf(second.id to 2), store.tapCounts())
+        store.incrementTapCount(first.id)
+        store.resetTapCount(first.id)
+        assertEquals(1, prefs.editCount)
+        assertEquals(mapOf(second.id to 2), store.tapCounts())
+    }
+
+    @Test
+    fun malformedCountsStayUntouchedUntilIncrementOrReset() {
+        val first = TagItem.Link("First", "https://example.com/first", "first")
+        val second = TagItem.Link("Second", "https://example.com/second", "second")
+        val json = ItemJson.encode(listOf(first, second))
+        val malformed = listOf<Any>("not json", "[]", "{\"first\":\"3\"}",
+            "{\"first\":1.5}", "{\"first\":-1}", "{\"first\":2147483648}", 42)
+        for (bad in malformed) {
+            val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to json,
+                ItemStore.ACTIVE_ID_KEY to first.id, ItemStore.TAP_COUNTS_KEY to bad))
+            val store = ItemStore(prefs.preferences)
+            assertTrue(store.tapCounts().isEmpty())
+            assertEquals(0, prefs.editCount)
+            assertEquals(json, prefs.values[ItemStore.ITEMS_KEY])
+            store.delete(first.id)
+            assertEquals(bad, prefs.values[ItemStore.TAP_COUNTS_KEY])
+            val afterDelete = prefs.values[ItemStore.ITEMS_KEY]
+            store.incrementTapCount(second.id)
+            assertEquals(mapOf(second.id to 1), store.tapCounts())
+            assertEquals(afterDelete, prefs.values[ItemStore.ITEMS_KEY])
+
+            val resetPrefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to json,
+                ItemStore.ACTIVE_ID_KEY to second.id, ItemStore.TAP_COUNTS_KEY to bad))
+            val resetStore = ItemStore(resetPrefs.preferences)
+            resetStore.resetTapCount(first.id)
+            assertEquals(mapOf(first.id to 0), resetStore.tapCounts())
+            assertEquals(json, resetPrefs.values[ItemStore.ITEMS_KEY])
+            assertEquals(second.id, resetPrefs.values[ItemStore.ACTIVE_ID_KEY])
+        }
+    }
+
+    @Test
+    fun unreadableItemsAndReadFailuresCannotChangeCounters() {
+        for (bad in listOf<Any>("{}", "not json", "[1,", "[a'b,c'd]", 42)) {
+            val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to bad,
+                ItemStore.TAP_COUNTS_KEY to "{\"first\":3}"))
+            val before = prefs.values.toMap()
+            val store = ItemStore(prefs.preferences)
+            store.incrementTapCount("first")
+            store.resetTapCount("first")
+            store.delete("first")
+            assertEquals(0, prefs.editCount)
+            assertEquals(before, prefs.values)
+        }
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to "[]",
+            ItemStore.TAP_COUNTS_KEY to "{\"first\":3}"))
+        val before = prefs.values.toMap()
+        prefs.readFailure = IllegalStateException("Preferences unavailable")
+        val store = ItemStore(prefs.preferences)
+        assertTrue(store.tapCounts().isEmpty())
+        store.incrementTapCount("first")
+        store.resetTapCount("first")
+        store.delete("first")
+        assertEquals(0, prefs.editCount)
+        assertEquals(before, prefs.values)
+    }
+
+    @Test
+    fun countersDoNotMigrateMissingItemsOrCountHiddenIds() {
+        val absent = StoredItemsPreferences(mapOf("url" to "https://example.com/legacy"))
+        val absentStore = ItemStore(absent.preferences)
+        absentStore.incrementTapCount("missing")
+        absentStore.resetTapCount("missing")
+        assertEquals(0, absent.editCount)
+        assertFalse(absent.values.containsKey(ItemStore.ITEMS_KEY))
+        assertFalse(absent.values.containsKey(ItemStore.TAP_COUNTS_KEY))
+
+        val json = "[{\"id\":\"hidden\",\"type\":\"future\",\"label\":\"Future\"}]"
+        val hidden = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to json))
+        val hiddenStore = ItemStore(hidden.preferences)
+        hiddenStore.incrementTapCount("hidden")
+        hiddenStore.resetTapCount("hidden")
+        assertEquals(0, hidden.editCount)
+        assertEquals(json, hidden.values[ItemStore.ITEMS_KEY])
+    }
+
+    @Test
+    fun completedReadCounterDoesNotOverflowNegative() {
+        val item = TagItem.Link("First", "https://example.com", "first")
+        val prefs = StoredItemsPreferences(mapOf(ItemStore.ITEMS_KEY to ItemJson.encode(listOf(item)),
+            ItemStore.TAP_COUNTS_KEY to "{\"first\":2147483647}"))
+        val store = ItemStore(prefs.preferences)
+        store.incrementTapCount(item.id)
+        assertEquals(Int.MAX_VALUE, store.tapCounts()[item.id])
+    }
+
     // WO-3: count actual preference-editor access so unchanged data alone cannot mask an attempted write.
     private class StoredItemsPreferences(initial: Map<String, Any>) {
         val values = initial.toMutableMap()

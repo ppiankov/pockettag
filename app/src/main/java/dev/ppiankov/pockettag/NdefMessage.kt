@@ -126,14 +126,23 @@ object Type4Constants {
  * [ndefFileProvider] is called on each application SELECT, so a URL change takes effect on
  * the next tap without restarting anything.
  */
-class Type4Tag(private val ndefFileProvider: () -> ByteArray?) {
+class Type4Tag(
+    private val ndefFileProvider: () -> ByteArray?,
+    private val onReadComplete: () -> Unit = {}, // WO-12: notify after the session reaches the last NDEF byte.
+) {
+    // WO-12: retain the original trailing-lambda constructor for existing providers.
+    constructor(ndefFileProvider: () -> ByteArray?) : this(ndefFileProvider, {})
+
     private enum class Selected { NONE, APP, CC, NDEF }
 
     private var selected = Selected.NONE
     private var ndefFile: ByteArray = ByteArray(0)
+    private var completed = false // WO-12: count at most once before deactivation resets the session.
 
+    // WO-12: deactivation ends the completion window along with the application selection.
     fun reset() {
         selected = Selected.NONE
+        completed = false
     }
 
     fun process(apdu: ByteArray): ByteArray {
@@ -189,6 +198,11 @@ class Type4Tag(private val ndefFileProvider: () -> ByteArray?) {
         val le = if (apdu.size >= 5) apdu[4].toInt() and 0xFF else 0
         val requested = if (le == 0) MAX_SHORT_LE else le
         val end = minOf(offset + requested, file.size)
+        // WO-12: zero-byte EOF reads and CC reads cannot report delivery of the last NDEF byte.
+        if (selected == Selected.NDEF && offset < end && end == ndefFile.size && !completed) {
+            completed = true
+            onReadComplete()
+        }
         return file.copyOfRange(offset, end) + Type4Constants.SW_OK
     }
 

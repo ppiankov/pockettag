@@ -67,6 +67,9 @@ matching types when the original link can be preserved exactly. Other values app
 **Saved link**: you can select, edit, or delete them, but cannot add them directly. A fresh
 installation starts with the same default web link.
 
+Nonzero tap counts appear under each saved item; hold an item and tap **Reset count** to
+clear its count.
+
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
 observed below, not promised. On the Huawei P40 the phone must be unlocked; PocketTag does
@@ -147,6 +150,7 @@ uses-permission: name='android.permission.NFC'
 
 ## Known limitations
 
+- Tap counts measure completed NFC reads, not distinct people, and are stored only on the phone.
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
   of NDEF message, including record headers. Large contact cards or messages may not fit.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
