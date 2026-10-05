@@ -140,6 +140,8 @@ it is outside all experimental totals.
 
 Neither attempt is counted as a routing failure or a measured success. The reason the
 selection changed during foreground tap 1 remains unexplained.
+One possible cause is a touch on the item list while the phones are pressed together;
+this is a hypothesis, not a measured event.
 
 ## Post-tap routing comparison
 
@@ -166,7 +168,10 @@ controller's actual exchange. [Android HCE routing documentation](https://develo
 operator checked the Wallet UI and reported no such option. Consequently `wallet-popup-off`
 was not run. This is a result for this installation, not a claim that every Huawei Wallet
 version lacks the option. Huawei documents that another NFC device can open Wallet's Swipe
-screen; its article does not name a switch for suppressing that reader-triggered popup.
+screen and suggests disabling fingerprint quick access under **Wallet > Me > General >
+Quick access fingerprint**, selecting **None**. The article also suggests turning NFC off,
+which would prevent this NFC-sharing test. The effect of disabling fingerprint quick access
+on reader-triggered taps was not tested in these batches.
 [Huawei Swipe-screen explanation](https://consumer.huawei.com/nz/support/content/en-us15785296/).
 
 **Payment-default control: not run, operator declined.** Huawei Wallet remained selected.

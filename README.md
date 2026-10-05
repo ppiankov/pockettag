@@ -160,9 +160,12 @@ uses-permission: name='android.permission.NFC'
 
 - The phone must be unlocked when booth mode starts. It keeps the screen on only while
   the booth screen is visible.
-- Background sharing on the Huawei P40 with Huawei Wallet was intermittent: 10/13
-  contact-card taps with a captured `ON_UNLOCKED` screen state completed. Use **Booth mode**
-  to keep PocketTag visible and awake; see the [Huawei tap findings](docs/research/huawei-wallet-background.md).
+- On the Huawei P40 with Huawei Wallet, about 3 in 4 contact-card taps with a captured
+  `ON_UNLOCKED` screen state completed with PocketTag on screen (7/9) and in the background
+  (10/13). Misses often coincided with Wallet's tap screen. Watch the tap count or **Sent**
+  and tap again if a completed read is not confirmed. **Booth mode** keeps the screen awake
+  while visible, avoiding the separate locked-screen failure. See the
+  [Huawei tap findings](docs/research/huawei-wallet-background.md).
 - Tap counts measure completed NFC reads, not distinct people, and are stored only on the phone.
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
   of NDEF message, including record headers. Large contact cards or messages may not fit.
