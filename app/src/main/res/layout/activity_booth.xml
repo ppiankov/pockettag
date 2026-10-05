@@ -46,6 +46,15 @@
             android:text="@string/booth_nfc_settings"
             android:visibility="gone" />
 
+        <!-- WO-2: controller recovery is reachable without leaving the booth screen. -->
+        <Button
+            android:id="@+id/booth_chip_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/chip_retry"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/booth_count"
             android:layout_width="match_parent"

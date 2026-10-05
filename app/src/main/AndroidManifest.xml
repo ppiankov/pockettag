@@ -6,11 +6,16 @@
 
     <uses-feature android:name="android.hardware.nfc.hce" android:required="true" />
 
+    <!-- WO-2: reconciliation runs even when Android restores a screen other than the selector. -->
     <application
+        android:name=".PocketTagApplication"
         android:allowBackup="false"
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.DarkActionBar">
+
+        <!-- WO-2: the vendor library is optional; other phones continue to use HCE. -->
+        <uses-library android:name="com.nxp.nfc" android:required="false" />
 
         <activity
             android:name=".MainActivity"

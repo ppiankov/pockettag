@@ -76,11 +76,36 @@ unavailable, and **Sent at &lt;time&gt;** stays visible after each completed rea
 in the phone's locale. The next read updates it; changing the item, resetting its count,
 or leaving booth mode clears it. If NFC is off, the screen offers a button to open NFC
 settings. Press Back to return to the item list.
+In chip mode, the built-in tag answers taps without the app; booth mode cannot count those
+reads or show **Sent at &lt;time&gt;** for them.
 
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
 observed below, not promised. On the Huawei P40 the phone must be unlocked; PocketTag does
 not need to be the app on screen.
+
+## Chip mode
+
+On phones with the supported NXP content API, an optional **Use the phone's built-in tag
+(answers even when locked)** switch appears below **Serve tag**. It writes the selected
+item into the NFC controller's built-in Type 4 tag. The controller answers without the
+app; locked and powered-off behaviour depends on the phone. Observed results are recorded
+in the table below. Other phones keep using HCE and show no chip-mode switch.
+
+Switching **Serve tag** off is the global stop control, even when chip mode is off. The
+app writes an empty NDEF record and reports **Off. The built-in tag is verified empty.**
+only after an exact read-back. An unknown result keeps a warning and **Retry** visible;
+turn NFC off if the phone may still be serving the previous item. Opening the app also
+reconciles the chip with the current switches and selection, clearing stale content.
+
+If an item does not fit the controller, the app attempts to empty it and reports whether
+that was verified. There is no assumed controller capacity. The existing 1024-byte tag
+file limit still applies to saved items.
+
+**Before uninstalling, switch Serve tag off and wait for the verified-empty status.**
+Uninstalling does not stop the built-in tag. Writing an empty record is not secure
+erasure. Switching chip mode off does not change vendor routing or restore HCE on the
+Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 
 ## Tested devices
 
@@ -113,9 +138,8 @@ with its empty NDEF file. That is why the phone read as "Empty tag" before Pocke
 installed, and why no command ever reaches the app, locked or unlocked. Changing the routing
 needs a modified vendor partition (root), so no host card emulation app can serve a tag on this
 phone. What does work, from a regular app, is writing the message into that built-in tag through
-NXP's vendor library; an S25 then opens the written URL. PocketTag does not do this yet: it is
-planned as an opt-in mode (see the roadmap), because the built-in tag answers without the app,
-including when the phone is locked.
+NXP's vendor library; an S25 then opens the written URL. PocketTag now offers this as
+opt-in chip mode, with verified read-back and Serve tag as the global stop control.
 
 With **Show last tap details** switched on, a successful tap's trace shows the reader
 selecting the NDEF application, reading the Capability Container, selecting the NDEF file,
@@ -188,8 +212,6 @@ uses-permission: name='android.permission.NFC'
 ## Roadmap
 
 - Record results for the device pairs in the table.
-- Opt-in chip mode for phones like the Sony above: write the selected item into the NFC
-  controller's built-in tag.
 - Show the selected item as a QR code for phones without NFC.
 
 ## Prior art
