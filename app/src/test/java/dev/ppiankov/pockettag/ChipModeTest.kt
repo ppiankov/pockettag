@@ -226,6 +226,83 @@ class ChipModeTest {
         assertArrayEquals(EMPTY, results.single())
     }
 
+    // WO-2: pending, failed, and verified outcomes must stay distinct even when Serve tag is off.
+    @Test fun pendingFailedAndVerifiedStatesRemainDistinct() {
+        val cases = listOf(Triple(goal, true, ChipDisplay.SERVING),
+            Triple(EMPTY, true, ChipDisplay.EMPTY), Triple(EMPTY, false, ChipDisplay.OFF_EMPTY))
+        for ((currentGoal, serving, verifiedDisplay) in cases) {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(currentGoal, serving, TagPrefs.CHIP_PENDING))
+            assertEquals(ChipDisplay.UNKNOWN, chipDisplay(currentGoal, serving, null))
+            assertEquals(verifiedDisplay, chipDisplay(currentGoal, serving, currentGoal.chipHex()))
+        }
+    }
+
+    // WO-2: queued and running reconciliation cannot display a failure before its final read-back.
+    @Test fun runningReconciliationStaysPendingThroughDelayedRead() {
+        val io = FakeChip(goal)
+        val tasks = mutableListOf<Runnable>()
+        var verifiedHex: String? = goal.chipHex()
+        var delays = 0
+        val queue = ChipSyncQueue(ChipTransaction(io) {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+            delays++
+        }, tasks::add, { verifiedHex = TagPrefs.CHIP_PENDING }, { verified ->
+            verifiedHex = verified?.chipHex()
+        })
+        io.onWrite = {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+        }
+        io.readResult = {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+            when (io.reads) {
+                1 -> goal
+                2 -> null
+                else -> io.content
+            }
+        }
+        queue.request(EMPTY, reconcile = true)
+        assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+        tasks.single().run()
+        assertEquals(1, io.writes.size)
+        assertEquals(3, io.reads)
+        assertEquals(1, delays)
+        assertEquals(ChipDisplay.OFF_EMPTY, chipDisplay(EMPTY, false, verifiedHex))
+    }
+
+    // WO-2: failed read-back produces the warning only after the current transaction publishes null.
+    @Test fun failedTransactionBecomesUnknownOnlyAfterCompletion() {
+        val io = FakeChip(goal)
+        val tasks = mutableListOf<Runnable>()
+        var verifiedHex: String? = goal.chipHex()
+        var published = false
+        var delays = 0
+        val queue = ChipSyncQueue(ChipTransaction(io) {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+            delays++
+        }, tasks::add, { verifiedHex = TagPrefs.CHIP_PENDING }, { verified ->
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+            assertNull(verified)
+            verifiedHex = verified?.chipHex()
+            published = true
+        })
+        io.onWrite = {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+        }
+        io.readResult = {
+            assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+            null
+        }
+        queue.request(EMPTY)
+        assertEquals(ChipDisplay.PENDING, chipDisplay(EMPTY, false, verifiedHex))
+        assertFalse(published)
+        tasks.single().run()
+        assertTrue(published)
+        assertEquals(1, io.writes.size)
+        assertEquals(2, io.reads)
+        assertEquals(1, delays)
+        assertEquals(ChipDisplay.UNKNOWN, chipDisplay(EMPTY, false, verifiedHex))
+    }
+
     @Test fun statusRequiresTheCurrentGoalOrVerifiedEmpty() {
         assertEquals(ChipDisplay.UNKNOWN, chipDisplay(EMPTY, false, null))
         assertEquals(ChipDisplay.UNKNOWN, chipDisplay(EMPTY, false, goal.chipHex()))

@@ -20,6 +20,8 @@ All notable changes to this project are documented here. The format follows
   visible until the item changes, its count is reset, or booth mode is left.
 - Serve tag off also empties the built-in tag, independently of the chip-mode setting;
   app startup reconciles stale content. Booth mode identifies chip reads as uncounted.
+- Built-in tag checks show "Checking the built-in tag…" while pending; warnings and Retry
+  appear only after a failed check.
 
 ## [0.2.0] - 2026-10-03
 

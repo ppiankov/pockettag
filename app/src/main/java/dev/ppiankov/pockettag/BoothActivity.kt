@@ -133,7 +133,8 @@ class BoothActivity : Activity() {
         } else if (chipMode) {
             val message = ChipSync.message(this, chipDisplay!!, selected?.label.orEmpty())
             if (state == BoothStatus.READY) status.text = message else status.append("\n" + message)
-        } else if (chipDisplay == ChipDisplay.UNKNOWN) {
+        } else if (chipDisplay == ChipDisplay.PENDING || chipDisplay == ChipDisplay.UNKNOWN) {
+            // WO-2: HCE mode also distinguishes an in-flight chip check from a failed transaction.
             status.append("\n" + ChipSync.message(this, chipDisplay, selected?.label.orEmpty()))
         }
         if (chipMode) status.append("\n" + getString(R.string.booth_chip_note))

@@ -26,10 +26,12 @@ internal fun chipGoal(state: ItemState, serving: Boolean, chipMode: Boolean): By
 }
 
 // WO-2: a stored verification is meaningful only against the current goal and global serving switch.
-internal enum class ChipDisplay { UNKNOWN, SERVING, EMPTY, OFF_EMPTY, ITEM_FAILED }
+internal enum class ChipDisplay { PENDING, UNKNOWN, SERVING, EMPTY, OFF_EMPTY, ITEM_FAILED }
 
 // WO-2: never claim off from an old nonempty verification or from an inconclusive read.
 internal fun chipDisplay(goal: ByteArray, serving: Boolean, verifiedHex: String?): ChipDisplay = when {
+    // WO-2: queued and running checks have no completed failure to report yet.
+    verifiedHex == TagPrefs.CHIP_PENDING -> ChipDisplay.PENDING
     verifiedHex == EMPTY.chipHex() -> when {
         !serving -> ChipDisplay.OFF_EMPTY
         goal.contentEquals(EMPTY) -> ChipDisplay.EMPTY
@@ -170,7 +172,7 @@ internal object ChipSync {
             val app = context.applicationContext
             NxpT4tNfcee.detect(app)?.let { io ->
                 worker = ChipSyncQueue(ChipTransaction(io, Thread::sleep), executor::execute,
-                    invalidate = { TagPrefs.setLastVerifiedChip(app, null) },
+                    invalidate = { TagPrefs.setChipPending(app) }, // WO-2: new work clears proof without claiming failure.
                     publish = { verified -> TagPrefs.setLastVerifiedChip(app, verified) })
             }
         }
@@ -188,6 +190,7 @@ internal object ChipSync {
 
     // WO-2: the selector and booth screen use the same exact verification and recovery wording.
     fun message(context: Context, display: ChipDisplay, label: String): String = when (display) {
+        ChipDisplay.PENDING -> context.getString(R.string.chip_pending)
         ChipDisplay.UNKNOWN -> context.getString(R.string.chip_unknown)
         ChipDisplay.SERVING -> context.getString(R.string.chip_serving, label)
         ChipDisplay.EMPTY -> context.getString(R.string.chip_empty)

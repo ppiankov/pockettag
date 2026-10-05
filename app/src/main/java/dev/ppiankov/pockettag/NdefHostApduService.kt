@@ -14,7 +14,8 @@ object TagPrefs {
     private const val KEY_URL = "url"
     internal const val KEY_ENABLED = "enabled" // WO-15: booth observers share the serving preference key.
     internal const val KEY_CHIP_MODE = "chip_mode" // WO-2: chip publication remains an explicit opt-in.
-    internal const val KEY_VERIFIED_CHIP = "last_verified_chip" // WO-2: only byte-exact read-back is remembered.
+    internal const val KEY_VERIFIED_CHIP = "last_verified_chip" // WO-2: stores pending work or byte-exact read-back proof.
+    internal const val CHIP_PENDING = "pending" // WO-2: in-flight work must not look like a failed transaction.
     private const val KEY_CHIP_CONFIRMED = "chip_mode_confirmed" // WO-2: retain the first-enable acknowledgement.
     private const val KEY_TRACE = "last_trace"
     private const val KEY_SHOW_TRACE = "show_trace"
@@ -50,7 +51,12 @@ object TagPrefs {
     fun lastVerifiedChip(context: Context): String? =
         runCatching { prefs(context).getString(KEY_VERIFIED_CHIP, null) }.getOrNull()
 
-    // WO-2: new requests remove the old proof; current-generation read-backs replace it atomically.
+    // WO-2: pending replaces the old proof without prematurely displaying a failure warning.
+    fun setChipPending(context: Context) {
+        prefs(context).edit().putString(KEY_VERIFIED_CHIP, CHIP_PENDING).apply()
+    }
+
+    // WO-2: completed current-generation checks store proof or remove it on failure.
     fun setLastVerifiedChip(context: Context, verified: ByteArray?) {
         prefs(context).edit().putString(KEY_VERIFIED_CHIP, verified?.chipHex()).apply()
     }
