@@ -13,9 +13,9 @@ unproven, and no Wallet setting was verified to fix it.
   `2f71f7b`. The installed build's identity was not independently verified.
 - Reader: Samsung Galaxy S25. Its Android version was not recorded.
 - Content: the same selected contact card, with NFC and **Serve tag** on.
-- Default NFC payment app: Huawei Wallet. The operator reported alternatives consisting
+- Default NFC payment app: Huawei Wallet. The tester reported alternatives consisting
   of SIM cards and three bank apps; PocketTag was absent from that list.
-- Wallet showed **Pay**, **Access cards**, and **Cards**; the operator described its
+- Wallet showed **Pay**, **Access cards**, and **Cards**; the tester described its
   default as **Access cards**. The Wallet version was not recorded.
 - No Wallet or payment-default settings were changed.
 
@@ -23,7 +23,7 @@ unproven, and no Wallet setting was verified to fix it.
 
 The baseline requested 20 physical taps with PocketTag behind the Android launcher. The
 control requested 10 with PocketTag's normal main screen visible, rather than Booth mode.
-The operator held the phones together for about two seconds. Later instructions explicitly
+The tester held the phones together for about two seconds. Later instructions explicitly
 required separating them after that hold and keeping the P40 awake until capture completed.
 Each slot was retained even if capture failed; failed captures were not replaced.
 
@@ -34,16 +34,16 @@ NLEN plus two. A success requires both reached and complete. Counter changes mea
 not distinct people. Logcat supplied Wallet SwipeActivity startup and RF field-on counts;
 `dumpsys nfc` supplied screen state, preferred service, and routing fields.
 
-The NFC snapshot was taken after the operator's acknowledgement and a further two-second
+The NFC snapshot was taken after the tester's acknowledgement and a further two-second
 delay. It is a post-tap observation, not a measurement at first field contact. Some replies
-were delayed and the phone auto-locked; the operator confirmed that this happened. Only
+were delayed and the phone auto-locked; the tester confirmed that this happened. Only
 the complete `ON_UNLOCKED` value is admitted to rates, cross-tabs, and routing comparisons.
 Other captured states are listed separately as **excluded (screen not unlocked)**, never
 as routing failures. Missing captures are **unverified** and have no inferred screen state.
 
-The operator confirmed that baseline taps 17 and 18 began on the Android launcher. Before
+The tester confirmed that baseline taps 17 and 18 began on the Android launcher. Before
 foreground tap 9, a setup check found PocketTag's main screen visible and unlocked; the
-operator subsequently confirmed that it was unlocked immediately before the tap, but did
+tester subsequently confirmed that it was unlocked immediately before the tap, but did
 not explicitly confirm the visible app at that instant. Setup checks and later snapshots
 cannot establish the order of Wallet startup, controller changes, and reader commands.
 These small batches on different days do not establish that either mode improves reliability.
@@ -133,10 +133,10 @@ it is outside all experimental totals.
 
 ### Unverified physical attempts
 
-| Condition | Tap | Capture gap | Operator outcome |
+| Condition | Tap | Capture gap | Tester report |
 |---|---:|---|---|
 | `baseline` | 13 | USB debugging became unauthorized after the physical tap; no valid capture | Same chooser result as tap 12 |
-| `foreground-main` | 1 | Selected item changed during capture; the capture guard stopped before saving diagnostics | Reported that the read worked |
+| `foreground-main` | 1 | Selected item changed during capture; the capture check stopped before saving diagnostics | Reported that the read worked |
 
 Neither attempt is counted as a routing failure or a measured success. The reason the
 selection changed during foreground tap 1 remains unexplained.
@@ -165,16 +165,17 @@ controller's actual exchange. [Android HCE routing documentation](https://develo
 ## Wallet controls
 
 **Reader-popup switch: not found; no exact setting name or menu path was obtained.** The
-operator checked the Wallet UI and reported no such option. Consequently `wallet-popup-off`
+tester checked the Wallet UI and reported no such option. Consequently `wallet-popup-off`
 was not run. This is a result for this installation, not a claim that every Huawei Wallet
 version lacks the option. Huawei documents that another NFC device can open Wallet's Swipe
 screen and suggests disabling fingerprint quick access under **Wallet > Me > General >
 Quick access fingerprint**, selecting **None**. The article also suggests turning NFC off,
-which would prevent this NFC-sharing test. The effect of disabling fingerprint quick access
-on reader-triggered taps was not tested in these batches.
+which would prevent this NFC-sharing test. On this installation Wallet offers no settings
+at all, only reordering of configured cards (checked 2026-10-05), so quick access cannot
+be turned off and its effect on reader-triggered taps could not be tested.
 [Huawei Swipe-screen explanation](https://consumer.huawei.com/nz/support/content/en-us15785296/).
 
-**Payment-default control: not run, operator declined.** Huawei Wallet remained selected.
+**Payment-default control: not run, tester declined.** Huawei Wallet remained selected.
 Huawei documents the EMUI 10 path as **Settings > More connections > NFC > Default app**;
 that is a separate control from Wallet's card view.
 [Huawei default-app instructions](https://consumer.huawei.com/ae-en/support/content/en-us15785525/).
