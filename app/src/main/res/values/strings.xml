@@ -59,7 +59,8 @@
     <!-- WO-15: the booth screen makes sharing readiness and completed reads visible. -->
     <string name="booth_mode">Booth mode</string>
     <string name="booth_instruction">Hold your phone against the back of this one</string>
-    <string name="booth_sent">Sent</string>
+    <!-- WO-18: include the localized time so feedback remains useful after separation. -->
+    <string name="booth_sent_at">Sent at %1$s</string>
     <string name="booth_nfc_settings">Open NFC settings</string>
     <string name="status_item_invalid">The selected item cannot be shared.</string>
 </resources>

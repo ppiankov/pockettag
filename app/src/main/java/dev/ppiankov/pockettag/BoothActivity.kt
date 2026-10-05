@@ -11,13 +11,13 @@ import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
+import java.text.DateFormat
+import java.util.Date
 
 // WO-15: keep the selected content, readiness, and completed reads visible at a stand.
 class BoothActivity : Activity() {
@@ -28,11 +28,10 @@ class BoothActivity : Activity() {
     private lateinit var count: TextView // WO-15: selected item's completed-read count.
     private lateinit var sent: TextView // WO-15: brief feedback for a new completed read.
     private lateinit var nfcSettings: Button // WO-15: recovery action for disabled NFC.
-    private val handler = Handler(Looper.getMainLooper()) // WO-15: feedback runs on the UI thread.
-    private val hideSent = Runnable { sent.visibility = View.INVISIBLE } // WO-15: end the feedback flash.
     private var resumed = false // WO-15: ignore callbacks after the screen becomes inactive.
     private var lastItemId: String? = null // WO-15: switching items must not look like a tap.
     private var lastCount = 0 // WO-15: compare only counts observed while this screen is visible.
+    private var lastSentAt: Long? = null // WO-18: retain confirmation until its visible-read baseline changes.
 
     // WO-15: diagnostics writes do not affect booth content or readiness.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -81,7 +80,9 @@ class BoothActivity : Activity() {
         resumed = false
         TagPrefs.unlisten(this, prefsListener)
         unregisterReceiver(nfcReceiver)
-        handler.removeCallbacks(hideSent)
+        // WO-18: reentering booth mode cannot display a confirmation from the previous visit.
+        lastSentAt = null
+        sent.text = ""
         sent.visibility = View.INVISIBLE
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // WO-15: cleanup must complete even when the device rejects the preferred route.
@@ -119,19 +120,30 @@ class BoothActivity : Activity() {
         val currentCount = selected?.let { store.tapCounts()[it.id] } ?: 0
         count.text = resources.getQuantityString(R.plurals.tap_count, currentCount, currentCount)
         // WO-15: selection changes, resets, and resumes clear feedback instead of inventing a tap.
-        if (!flashChanges || selected?.id != lastItemId || currentCount < lastCount) {
-            handler.removeCallbacks(hideSent)
-            sent.visibility = View.INVISIBLE
-        } else if (selected != null && currentCount > lastCount) {
-            sent.visibility = View.VISIBLE
-            handler.removeCallbacks(hideSent)
-            handler.postDelayed(hideSent, SENT_FLASH_MS)
-        }
+        // WO-18: retain only timestamps for count increases observed with the same visible selection.
+        lastSentAt = boothSentAt(lastItemId, lastCount, selected?.id, currentCount,
+            flashChanges, lastSentAt, System.currentTimeMillis())
+        sent.text = lastSentAt?.let {
+            getString(R.string.booth_sent_at, DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date(it)))
+        }.orEmpty()
+        sent.visibility = if (lastSentAt == null) View.INVISIBLE else View.VISIBLE
         lastItemId = selected?.id
         lastCount = currentCount
     }
 
-    companion object {
-        private const val SENT_FLASH_MS = 2000L // WO-15: keep each completed-read confirmation visible for two seconds.
-    }
+}
+
+// WO-18: resume, selection changes, and count resets cannot masquerade as a newly completed read.
+internal fun boothSentAt(
+    previousItemId: String?,
+    previousCount: Int,
+    currentItemId: String?,
+    currentCount: Int,
+    observeRead: Boolean,
+    previousSentAt: Long?,
+    now: Long,
+): Long? = when {
+    !observeRead || currentItemId != previousItemId || currentCount < previousCount -> null
+    currentItemId != null && currentCount > previousCount -> now
+    else -> previousSentAt
 }

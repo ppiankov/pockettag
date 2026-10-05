@@ -72,8 +72,10 @@ clear its count.
 
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
-unavailable, and **Sent** appears briefly after each completed read. If NFC is off, the
-screen offers a button to open NFC settings. Press Back to return to the item list.
+unavailable, and **Sent at &lt;time&gt;** stays visible after each completed read, with seconds
+in the phone's locale. The next read updates it; changing the item, resetting its count,
+or leaving booth mode clears it. If NFC is off, the screen offers a button to open NFC
+settings. Press Back to return to the item list.
 
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
