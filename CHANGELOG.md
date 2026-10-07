@@ -22,6 +22,8 @@ All notable changes to this project are documented here. The format follows
   app startup reconciles stale content. Booth mode identifies chip reads as uncounted.
 - Built-in tag checks show "Checking the built-in tag…" while pending; warnings and Retry
   appear only after a failed check.
+- Recorded built-in tag and Booth device results, including Sony contact-card failure
+  and Samsung web-link reads from Booth and the main screen.
 
 ## [0.2.0] - 2026-10-03
 

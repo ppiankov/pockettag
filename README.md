@@ -119,12 +119,18 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
 | Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
-| Sony Xperia XQ-BC72 (Android 13) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
-| Sony Xperia XQ-BC72 (Android 13) | Huawei phone | fails: reader reports "Empty tag" |
+| Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
+| Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
+| Sony Xperia XQ-BC72 (chip mode, web link) | Samsung Galaxy S25 | **works**: website opens unlocked, locked, in Booth, and at the Sony boot logo |
+| Sony Xperia XQ-BC72 (chip mode, contact card) | Samsung Galaxy S25 | fails: the 431-byte card was not published; read-back was verified empty; reader reports "unknown tag type". The cause is not established |
+| Sony Xperia XQ-BC72 (Serve tag off) | Samsung Galaxy S25 | built-in tag verified empty; reader reports "unknown tag type" |
+| Sony Xperia XQ-BC72 (powered off, built-in tag empty) | Samsung Galaxy S25 | no response while fully off; reader reports "unknown tag type" at the boot logo |
 | Samsung Galaxy S25 | Huawei P40 | **works**, two taps: the S25 asks which tag service to use on the first tap |
-| Huawei P40 (booth mode, contact card) | Samsung Galaxy S25 | **works**: the S25 reads the whole contact card and the tap count goes up |
-| Huawei P40 (booth mode, past screen timeout) | Samsung Galaxy S25 | not yet tested |
-| Samsung Galaxy S25 (booth mode) | Huawei P40 | not yet tested |
+| Huawei P40 (booth mode, contact card) | Samsung Galaxy S25 | **works**: the S25 reads the whole contact card and the tap count goes up; Sent time persists after separation and updates on the next read. Changing the item and reopening Booth clears it |
+| Huawei P40 (booth mode, past 30-second screen timeout) | Samsung Galaxy S25 | **works**: P40 stays awake past the timeout and the selected email is offered on a tap; leaving Booth restores automatic screen timeout |
+| Huawei P40 (booth mode, NFC warning) | — | NFC off shows the warning and settings button; NFC on clears both without exiting Booth (observed on screen). Serve-off and no-item warnings in place are not yet tested |
+| Samsung Galaxy S25 (booth mode, web link) | Huawei P40 | **works**: one tap opens the web link; Sent appears and the tap count goes up |
+| Samsung Galaxy S25 (main screen, web link) | Huawei P40 | **works**: one tap opens the web link |
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
 | Huawei P40 (v0.2) | iPhone 16, iOS 26.6.1 (background tag reading) | **works** for web link, WhatsApp, call, email, SMS; contact card: no response |
 
