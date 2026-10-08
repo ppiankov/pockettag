@@ -102,6 +102,9 @@ If an item does not fit the controller, the app attempts to empty it and reports
 that was verified. There is no assumed controller capacity. The existing 1024-byte tag
 file limit still applies to saved items.
 
+Switch on **Show last tap details** to see the last built-in tag write status and byte
+length. For `ERROR_RF_ACTIVATED`, move the phones apart before tapping **Retry**.
+
 On the Sony XQ-BC72, a 431-byte contact card did not publish to the built-in tag and fell
 back to empty; the cause is under investigation, while web links work.
 
