@@ -77,4 +77,15 @@
     <string name="chip_unknown">The phone may still be serving the previous item. Turn NFC off to stop it.</string>
     <string name="chip_retry">Retry</string>
     <string name="booth_chip_note">The built-in tag answers taps; this screen cannot count them.</string>
+    <!-- WO-19: the diagnostic line exposes only vendor names, byte counts, and verification facts. -->
+    <plurals name="chip_diagnostic">
+        <item quantity="one">Built-in tag: last write %1$s for %2$d byte%3$s</item>
+        <item quantity="other">Built-in tag: last write %1$s for %2$d bytes%3$s</item>
+    </plurals>
+    <string name="chip_diagnostic_verified">" (verified)"</string>
+    <string name="chip_diagnostic_unverified">" (unverified)"</string>
+    <string name="chip_diagnostic_empty_verified">; fell back to empty (verified)</string>
+    <string name="chip_diagnostic_empty_unverified">; empty fallback %1$s (unverified)</string>
+    <!-- WO-19: RF-active failures have a specific recovery action instead of a guessed size limit. -->
+    <string name="chip_rf_active_hint">Move the phones apart, then tap Retry.</string>
 </resources>

@@ -39,7 +39,9 @@ class BoothActivity : Activity() {
         if (key == null || key == ItemStore.ITEMS_KEY || key == ItemStore.ACTIVE_ID_KEY ||
             key == TagPrefs.KEY_ENABLED || key == ItemStore.TAP_COUNTS_KEY ||
             // WO-2: chip state and verification changes refresh the booth warning in place.
-            key == TagPrefs.KEY_CHIP_MODE || key == TagPrefs.KEY_VERIFIED_CHIP) {
+            // WO-19: completed detection and vendor metadata refresh the same chip warning.
+            key == TagPrefs.KEY_CHIP_MODE || key == TagPrefs.KEY_VERIFIED_CHIP ||
+            key == TagPrefs.KEY_CHIP_AVAILABLE || key == TagPrefs.KEY_CHIP_WRITE_STATUS) {
             runOnUiThread { if (resumed) refresh() }
         }
     }
@@ -71,9 +73,10 @@ class BoothActivity : Activity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // WO-15: vendor routing failures must leave the booth screen working.
         runCatching { cardEmulation()?.setPreferredService(this, service) }
+        // WO-19: listen before rendering so a concurrent detection completion cannot be missed.
+        TagPrefs.listen(this, prefsListener)
         // WO-15: establish a fresh baseline so reads received while hidden do not flash Sent.
         refresh(flashChanges = false)
-        TagPrefs.listen(this, prefsListener)
         val filter = IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(nfcReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -138,7 +141,8 @@ class BoothActivity : Activity() {
             status.append("\n" + ChipSync.message(this, chipDisplay, selected?.label.orEmpty()))
         }
         if (chipMode) status.append("\n" + getString(R.string.booth_chip_note))
-        chipRetry.visibility = if (chipDisplay == ChipDisplay.UNKNOWN) View.VISIBLE else View.GONE
+        // WO-19: the RF recovery hint must have a usable Retry action after a verified EMPTY fallback.
+        chipRetry.visibility = if (ChipSync.retryAvailable(this, chipDisplay)) View.VISIBLE else View.GONE
         nfcSettings.visibility = if (state == BoothStatus.NFC_OFF) View.VISIBLE else View.GONE
 
         val currentCount = selected?.let { store.tapCounts()[it.id] } ?: 0

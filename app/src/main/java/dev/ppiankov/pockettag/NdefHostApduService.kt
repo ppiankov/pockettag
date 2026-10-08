@@ -19,6 +19,15 @@ object TagPrefs {
     private const val KEY_CHIP_CONFIRMED = "chip_mode_confirmed" // WO-2: retain the first-enable acknowledgement.
     private const val KEY_TRACE = "last_trace"
     private const val KEY_SHOW_TRACE = "show_trace"
+    internal const val KEY_CHIP_AVAILABLE = "chip_available" // WO-19: refresh screens after this process's detection.
+    internal const val KEY_CHIP_WRITE_STATUS = "chip_write_status" // WO-19: retain a vendor status name, never content.
+    private const val KEY_CHIP_FALLBACK_STATUS = "chip_fallback_status" // WO-19: describe the optional EMPTY attempt.
+    private const val KEY_CHIP_GOAL_LENGTH = "chip_goal_length" // WO-19: diagnose sizes without retaining message bytes.
+    private const val KEY_CHIP_READBACK_MATCHED = "chip_readback_matched" // WO-19: compare the final attempted target.
+    private const val KEY_CHIP_VERIFIED_EMPTY = "chip_verified_empty" // WO-19: distinguish verified EMPTY from a failed write.
+    private const val KEY_CHIP_READBACK_AVAILABLE = "chip_readback_available" // WO-19: preserve the null-read halt evidence.
+    private const val CHIP_FLAG_FALSE = 0 // WO-19: diagnostic flags are stored as plain integers.
+    private const val CHIP_FLAG_TRUE = 1 // WO-19: the outcome preferences contain only names and integers.
     const val DEFAULT_URL = "https://obstalabs.dev"
 
     // The trace is always recorded; this only controls whether the screen shows it.
@@ -60,6 +69,49 @@ object TagPrefs {
     fun setLastVerifiedChip(context: Context, verified: ByteArray?) {
         prefs(context).edit().putString(KEY_VERIFIED_CHIP, verified?.chipHex()).apply()
     }
+
+    // WO-19: this private notification reflects cached detection rather than triggering another vendor call.
+    internal fun setChipAvailable(context: Context, available: Boolean) {
+        prefs(context).edit().putBoolean(KEY_CHIP_AVAILABLE, available).apply()
+    }
+
+    // WO-19: only completed current-generation transactions reach this content-free persistence boundary.
+    internal fun setChipOutcome(context: Context, outcome: ChipOutcome) = setChipOutcome(prefs(context), outcome)
+
+    // WO-19: one editor replaces every metadata field and removes a previous fallback when none was attempted.
+    internal fun setChipOutcome(prefs: SharedPreferences, outcome: ChipOutcome) {
+        prefs.edit().putString(KEY_CHIP_WRITE_STATUS, outcome.goalStatus.name)
+            .putString(KEY_CHIP_FALLBACK_STATUS, outcome.fallbackStatus?.name)
+            .putInt(KEY_CHIP_GOAL_LENGTH, outcome.goalLength)
+            .putInt(KEY_CHIP_READBACK_MATCHED, if (outcome.readBackMatched) CHIP_FLAG_TRUE else CHIP_FLAG_FALSE)
+            .putInt(KEY_CHIP_VERIFIED_EMPTY, if (outcome.verifiedEmpty) CHIP_FLAG_TRUE else CHIP_FLAG_FALSE)
+            .putInt(KEY_CHIP_READBACK_AVAILABLE, if (outcome.finalReadBackAvailable) CHIP_FLAG_TRUE else CHIP_FLAG_FALSE)
+            .apply()
+    }
+
+    // WO-19: missing or malformed diagnostics must not change the authoritative verification state.
+    internal fun lastChipOutcome(context: Context): ChipOutcome? = lastChipOutcome(prefs(context))
+
+    // WO-19: read only the fixed status/number fields; private tag proof and saved items are not diagnostic inputs.
+    internal fun lastChipOutcome(prefs: SharedPreferences): ChipOutcome? = runCatching {
+        val values = prefs.all
+        val status = ChipWriteStatus.valueOf(values[KEY_CHIP_WRITE_STATUS] as? String ?: return@runCatching null)
+        val fallback = when (val raw = values[KEY_CHIP_FALLBACK_STATUS]) {
+            null -> null
+            is String -> ChipWriteStatus.valueOf(raw)
+            else -> return@runCatching null
+        }
+        val length = (values[KEY_CHIP_GOAL_LENGTH] as? Int)?.takeIf { it >= 0 } ?: return@runCatching null
+        fun flag(key: String): Boolean? = when (values[key]) {
+            CHIP_FLAG_FALSE -> false
+            CHIP_FLAG_TRUE -> true
+            else -> null
+        }
+        ChipOutcome(status, fallback, length,
+            flag(KEY_CHIP_READBACK_MATCHED) ?: return@runCatching null,
+            flag(KEY_CHIP_VERIFIED_EMPTY) ?: return@runCatching null,
+            flag(KEY_CHIP_READBACK_AVAILABLE) ?: return@runCatching null)
+    }.getOrNull()
 
     // WO-2: JVM fakes exercise the same after-persistence trigger as the framework entry point.
     internal fun setEnabled(prefs: SharedPreferences, enabled: Boolean, requestSync: () -> Unit) {

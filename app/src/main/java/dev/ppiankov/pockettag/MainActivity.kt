@@ -39,8 +39,10 @@ class MainActivity : Activity() {
                 refreshStatus(null)
             }
             // WO-2: verification and switch changes refresh the chip status without rewriting saved content.
+            // WO-19: cached capability and completed metadata must refresh the switch and RF guidance.
             if (key == TagPrefs.KEY_CHIP_MODE || key == TagPrefs.KEY_ENABLED ||
-                key == TagPrefs.KEY_VERIFIED_CHIP) {
+                key == TagPrefs.KEY_VERIFIED_CHIP || key == TagPrefs.KEY_CHIP_AVAILABLE ||
+                key == TagPrefs.KEY_CHIP_WRITE_STATUS) {
                 refreshChipSwitch()
                 refreshStatus(null)
             }
@@ -205,13 +207,19 @@ class MainActivity : Activity() {
         // WO-2: even with chip mode off, any unknown residual content remains visible with Retry.
         val chipDetails = if (chipAvailable && serving && state != chipMessage) chipMessage else null
         status.text = listOfNotNull(prefix, state, chipDetails, routing).joinToString("\n")
-        chipRetry.visibility = if (chipDisplay == ChipDisplay.UNKNOWN) View.VISIBLE else View.GONE
+        // WO-19: an RF-failed item exposes the Retry action named by its appended recovery hint.
+        chipRetry.visibility = if (ChipSync.retryAvailable(this, chipDisplay)) View.VISIBLE else View.GONE
     }
 
+    // WO-19: the existing diagnostics toggle also shows the content-free vendor outcome on supported phones.
     private fun refreshTrace() {
         val show = TagPrefs.showTrace(this)
         trace.visibility = if (show) View.VISIBLE else View.GONE
-        if (show) trace.text = TagPrefs.lastTrace(this) ?: getString(R.string.trace_none)
+        if (show) {
+            val chip = ChipSync.diagnostics(this)
+            val reader = TagPrefs.lastTrace(this) ?: getString(R.string.trace_none)
+            trace.text = listOfNotNull(chip, reader).joinToString("\n")
+        }
     }
 }
 

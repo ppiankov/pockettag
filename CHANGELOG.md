@@ -13,6 +13,8 @@ All notable changes to this project are documented here. The format follows
   and brief feedback after completed reads.
 - Opt-in built-in tag mode on supported NXP phones, with exact read-back verification,
   an EMPTY fallback for failed items, persistent unknown-state warnings, and Retry.
+- Local built-in tag write diagnostics with vendor status names, byte lengths,
+  verification results, and RF-active recovery guidance.
 
 ### Changed
 
@@ -22,6 +24,8 @@ All notable changes to this project are documented here. The format follows
   app startup reconciles stale content. Booth mode identifies chip reads as uncounted.
 - Built-in tag checks show "Checking the built-in tag…" while pending; warnings and Retry
   appear only after a failed check.
+- Built-in tag capability detection runs once on the background worker so it cannot
+  block the screen; early requests retain the current goal and startup reconciliation.
 - Recorded built-in tag and Booth device results, including Sony contact-card failure
   and Samsung web-link reads from Booth and the main screen.
 
