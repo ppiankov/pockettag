@@ -105,8 +105,10 @@ file limit still applies to saved items.
 Switch on **Show last tap details** to see the last built-in tag write status and byte
 length. For `ERROR_RF_ACTIVATED`, move the phones apart before tapping **Retry**.
 
-On the Sony XQ-BC72, a 431-byte contact card did not publish to the built-in tag and fell
-back to empty; the cause is under investigation, while web links work.
+On the Sony XQ-BC72, a 99-byte contact card and a 340-byte long web link published with
+verified read-back. A 431-byte contact card and a 440-byte web link both returned
+`STATUS_FAILED` and fell back to verified empty, so the limit is size, not item type: it
+lies somewhere between 341 and 430 bytes.
 
 **Before uninstalling, switch Serve tag off and wait for the verified-empty status.**
 Uninstalling does not stop the built-in tag. Writing an empty record is not secure
@@ -128,7 +130,10 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (chip mode, web link) | Samsung Galaxy S25 | **works**: website opens unlocked, locked, in Booth, and at the Sony boot logo |
-| Sony Xperia XQ-BC72 (chip mode, contact card) | Samsung Galaxy S25 | fails: the 431-byte card was not published; read-back was verified empty; reader reports "unknown tag type". The cause is not established |
+| Sony Xperia XQ-BC72 (chip mode, 431-byte contact card) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser (earlier reads reported "unknown tag type") |
+| Sony Xperia XQ-BC72 (chip mode, 99-byte contact card) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; contact import offered on one tap |
+| Sony Xperia XQ-BC72 (chip mode, 340-byte long web link) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; reader tried to open the URL on one tap |
+| Sony Xperia XQ-BC72 (chip mode, 440-byte long web link) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser |
 | Sony Xperia XQ-BC72 (Serve tag off) | Samsung Galaxy S25 | built-in tag verified empty; reader reports "unknown tag type" |
 | Sony Xperia XQ-BC72 (powered off, built-in tag empty) | Samsung Galaxy S25 | no response while fully off; reader reports "unknown tag type" at the boot logo |
 | Samsung Galaxy S25 (PocketTag not on screen) | Huawei P40 | **works**, two taps: the S25 asks whether its built-in "Embedded Tag" or PocketTag should answer |
