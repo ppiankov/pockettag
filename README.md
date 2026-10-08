@@ -102,6 +102,9 @@ If an item does not fit the controller, the app attempts to empty it and reports
 that was verified. There is no assumed controller capacity. The existing 1024-byte tag
 file limit still applies to saved items.
 
+On the Sony XQ-BC72, a 431-byte contact card did not publish to the built-in tag and fell
+back to empty; the cause is under investigation, while web links work.
+
 **Before uninstalling, switch Serve tag off and wait for the verified-empty status.**
 Uninstalling does not stop the built-in tag. Writing an empty record is not secure
 erasure. Switching chip mode off does not change vendor routing or restore HCE on the
@@ -125,10 +128,10 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (chip mode, contact card) | Samsung Galaxy S25 | fails: the 431-byte card was not published; read-back was verified empty; reader reports "unknown tag type". The cause is not established |
 | Sony Xperia XQ-BC72 (Serve tag off) | Samsung Galaxy S25 | built-in tag verified empty; reader reports "unknown tag type" |
 | Sony Xperia XQ-BC72 (powered off, built-in tag empty) | Samsung Galaxy S25 | no response while fully off; reader reports "unknown tag type" at the boot logo |
-| Samsung Galaxy S25 | Huawei P40 | **works**, two taps: the S25 asks which tag service to use on the first tap |
+| Samsung Galaxy S25 (PocketTag not on screen) | Huawei P40 | **works**, two taps: the S25 asks whether its built-in "Embedded Tag" or PocketTag should answer |
 | Huawei P40 (booth mode, contact card) | Samsung Galaxy S25 | **works**: the S25 reads the whole contact card and the tap count goes up; Sent time persists after separation and updates on the next read. Changing the item and reopening Booth clears it |
 | Huawei P40 (booth mode, past 30-second screen timeout) | Samsung Galaxy S25 | **works**: P40 stays awake past the timeout and the selected email is offered on a tap; leaving Booth restores automatic screen timeout |
-| Huawei P40 (booth mode, NFC warning) | — | NFC off shows the warning and settings button; NFC on clears both without exiting Booth (observed on screen). Serve-off and no-item warnings in place are not yet tested |
+| Huawei P40 (booth mode, warnings) | — | NFC off shows the warning and settings button; NFC on clears both without exiting Booth (observed on screen). Serve off shows Paused after opening Booth; Serve on clears it after reopening. Deleting the selected spare selects the first remaining item; this procedure could not reach No item selected while other items remained |
 | Samsung Galaxy S25 (booth mode, web link) | Huawei P40 | **works**: one tap opens the web link; Sent appears and the tap count goes up |
 | Samsung Galaxy S25 (main screen, web link) | Huawei P40 | **works**: one tap opens the web link |
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
@@ -210,8 +213,11 @@ uses-permission: name='android.permission.NFC'
   so PocketTag never sees the request; the Sony Xperia XQ-BC72 is one. Results per device are
   in the table above. If a tap fails, switch on **Show last tap details**: the trace shows whether any
   command arrived. The trace stays on the phone and can include bytes of the selected content.
-- On the Galaxy S25 the first tap shows a chooser for which service should answer, so a read
-  takes two taps.
+- On the Sony XQ-BC72, a 431-byte contact card did not publish to the built-in tag and fell
+  back to empty; the cause is under investigation, while web links work.
+- On the Galaxy S25 the first tap shows a chooser between Samsung's "Embedded Tag" and
+  PocketTag unless PocketTag is on screen (main screen or Booth mode), where one tap was
+  observed.
 - WhatsApp shows its own safety warning when the chat number is not in the reader's
   contacts. That is WhatsApp's behaviour, not PocketTag's.
 
