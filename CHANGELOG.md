@@ -28,7 +28,7 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - Failed built-in tag writes explain the attempted byte length as a likely size issue
-  for completed non-RF vendor failures.
+  for `STATUS_FAILED` and `ERROR_INVALID_LENGTH`.
 - Booth confirmation now keeps the last completed read's local time, including seconds,
   visible until the item changes, its count is reset, or booth mode is left.
 - Serve tag off also empties the built-in tag, independently of the chip-mode setting;

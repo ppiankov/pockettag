@@ -32,14 +32,16 @@ class ChipSizeHintTest {
         assertNull(message(ChipDisplay.ITEM_FAILED, null))
     }
 
-    // WO-20: named non-RF vendor failures use the recorded length rather than a capacity threshold.
+    // WO-20: other vendor failures retain their warning; only invalid length also warrants size guidance.
     @Test fun otherVendorFailuresUseTheAttemptedLength() {
         for (status in listOf(ChipWriteStatus.ERROR_MPOS_ON, ChipWriteStatus.ERROR_NFC_NOT_ON,
             ChipWriteStatus.ERROR_INVALID_FILE_ID, ChipWriteStatus.ERROR_INVALID_LENGTH,
             ChipWriteStatus.ERROR_CONNECTION_FAILED, ChipWriteStatus.ERROR_EMPTY_PAYLOAD,
             ChipWriteStatus.ERROR_NDEF_VALIDATION_FAILED, ChipWriteStatus.ERROR_WRITE_PERMISSION,
             ChipWriteStatus.ERROR_NFC_OFF_TRIGGERED)) {
-            assertTrue(message(ChipDisplay.ITEM_FAILED, failed(status))!!.contains("431 bytes"))
+            val text = message(ChipDisplay.ITEM_FAILED, failed(status))
+            if (status == ChipWriteStatus.ERROR_INVALID_LENGTH) assertTrue(text!!.contains("431 bytes"))
+            else assertNull(text)
         }
     }
 

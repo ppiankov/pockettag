@@ -73,17 +73,17 @@ internal fun chipRfHint(display: ChipDisplay?, outcome: ChipOutcome?): Boolean =
 internal fun chipRetryAvailable(display: ChipDisplay?, outcome: ChipOutcome?): Boolean =
     display == ChipDisplay.UNKNOWN || chipRfHint(display, outcome)
 
-// WO-20: only completed non-RF vendor failures warrant a size suggestion, never a capacity assumption.
+// WO-20: only the measured failure and invalid-length code warrant a size suggestion, never a capacity assumption.
 internal fun chipSizeFailureMessage(
     display: ChipDisplay?,
     outcome: ChipOutcome?,
     format: (Int) -> String,
 ): String? {
     if (display != ChipDisplay.ITEM_FAILED || outcome == null || outcome.goalLength <= 0) return null
+    // WO-20: unrelated failures do not establish size as a likely cause.
     return when (outcome.failureStatus) {
-        null, ChipWriteStatus.WRITTEN, ChipWriteStatus.COUNT_MISMATCH,
-        ChipWriteStatus.UNKNOWN, ChipWriteStatus.ERROR_RF_ACTIVATED -> null
-        else -> format(outcome.goalLength)
+        ChipWriteStatus.STATUS_FAILED, ChipWriteStatus.ERROR_INVALID_LENGTH -> format(outcome.goalLength)
+        else -> null
     }
 }
 

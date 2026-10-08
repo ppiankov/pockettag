@@ -103,8 +103,8 @@ reconciles the chip with the current switches and selection, clearing stale cont
 If an item does not fit the controller, the app attempts to empty it and reports whether
 that was verified. There is no assumed controller capacity. The existing 1024-byte tag
 file limit still applies to saved items.
-After a completed non-RF vendor failure, the failed-item warning includes the attempted
-byte length and says the item is probably too large.
+For `STATUS_FAILED` or `ERROR_INVALID_LENGTH`, the failed-item warning includes the
+attempted byte length and says the item is probably too large.
 
 Switch on **Show last tap details** to see the last built-in tag write status and byte
 length. For `ERROR_RF_ACTIVATED`, move the phones apart before tapping **Retry**.
