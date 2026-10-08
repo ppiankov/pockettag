@@ -1,6 +1,10 @@
 package dev.ppiankov.pockettag
 
 import java.net.URLEncoder
+import java.net.URI
+import java.net.URISyntaxException
+import java.net.URLDecoder
+import java.util.Locale
 import java.util.UUID
 
 // WO-3: saved content owns validation and encoding independently of Android.
@@ -23,7 +27,8 @@ sealed class TagItem(id: String, label: String) {
     enum class Type(val storageName: String) {
         LINK("link"), CONTACT("contact"), WHATSAPP("whatsapp"),
         CALL("call"), EMAIL("email"), SMS("sms"), RAW("raw"),
-        NOTE("note"); // WO-8: append creatable types without changing saved discriminators.
+        NOTE("note"), // WO-8: append creatable types without changing saved discriminators.
+        PLACE("place"); // WO-9: coordinates use a stable discriminator without a location permission.
 
         companion object {
             // WO-3: legacy links remain editable but cannot be created from the Add menu.
@@ -161,6 +166,69 @@ sealed class TagItem(id: String, label: String) {
             NdefMessage.textRecord(text, this.language)
         }
         override fun ndefMessage(): ByteArray = NdefMessage.textRecord(text, language)
+    }
+
+    // WO-9: manually supplied coordinates become a map link that readers can open on either platform.
+    class Place(
+        label: String,
+        val latitude: Double, // WO-9: validate geographic bounds before encoding or persistence.
+        val longitude: Double, // WO-9: the second coordinate cannot be swapped with latitude.
+        val name: String = "", // WO-9: retain the optional name even though encoding A uses coordinates only.
+        id: String = UUID.randomUUID().toString(),
+    ) : TagItem(id, label) {
+        override val type = Type.PLACE // WO-9: explicit JSON type for manually entered places.
+        init {
+            require(latitude in -MAX_LATITUDE..MAX_LATITUDE) { "Latitude must be between -90 and 90." }
+            require(longitude in -MAX_LONGITUDE..MAX_LONGITUDE) { "Longitude must be between -180 and 180." }
+        }
+        // WO-9: use encoding A with deterministic decimal formatting, including on comma locales.
+        override val uri: String get() = "https://www.google.com/maps/search/?api=1&query=" +
+            coordinate(latitude) + "," + coordinate(longitude)
+        override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
+
+        companion object {
+            private const val MAX_LATITUDE = 90.0 // WO-9: geographic latitude bound.
+            private const val MAX_LONGITUDE = 180.0 // WO-9: geographic longitude bound.
+            private const val COORDINATE_DECIMALS = 6 // WO-9: map URLs use at most six fractional digits.
+            private const val LINK_ERROR = "Could not read coordinates from this link" // WO-9: one input error.
+            private val QUERY_COORDINATES = Regex("([+-]?[0-9]+(?:\\.[0-9]+)?),\\s*([+-]?[0-9]+(?:\\.[0-9]+)?)") // WO-9: accept a coordinate pair only.
+            private val PATH_COORDINATES = Regex("(?:^|/)@([+-]?[0-9]+(?:\\.[0-9]+)?),([+-]?[0-9]+(?:\\.[0-9]+)?)(?:,|/|$)") // WO-9: Google Maps path form includes optional zoom.
+
+            // WO-9: only the two specified Google Maps forms supply coordinates; no redirects are followed.
+            fun coordinatesFromLink(link: String): Pair<Double, Double> {
+                try {
+                    val uri = URI(link.trim())
+                    val host = uri.host?.lowercase(Locale.ROOT)
+                    require(uri.scheme == "http" || uri.scheme == "https") { LINK_ERROR }
+                    require(host in setOf("google.com", "www.google.com", "maps.google.com")) { LINK_ERROR }
+                    require(host == "maps.google.com" || uri.path == "/maps" || uri.path.startsWith("/maps/")) {
+                        LINK_ERROR
+                    }
+                    val query = uri.rawQuery?.split('&')?.firstOrNull { it.substringBefore('=') == "q" }
+                    val match = if (query != null) {
+                        QUERY_COORDINATES.matchEntire(URLDecoder.decode(query.substringAfter('=', ""), "UTF-8").trim())
+                    } else PATH_COORDINATES.find(uri.path)
+                    requireNotNull(match) { LINK_ERROR }
+                    val latitude = match.groupValues[1].toDouble()
+                    val longitude = match.groupValues[2].toDouble()
+                    require(latitude in -MAX_LATITUDE..MAX_LATITUDE && longitude in -MAX_LONGITUDE..MAX_LONGITUDE) {
+                        LINK_ERROR
+                    }
+                    return latitude to longitude
+                } catch (_: URISyntaxException) {
+                    throw IllegalArgumentException(LINK_ERROR)
+                } catch (_: IllegalArgumentException) {
+                    throw IllegalArgumentException(LINK_ERROR)
+                }
+            }
+
+            // WO-9: strip padding without letting a rounded negative zero become a different map query.
+            private fun coordinate(value: Double): String {
+                val text = String.format(Locale.ROOT, "%.$COORDINATE_DECIMALS" + "f", value)
+                    .trimEnd('0').trimEnd('.')
+                return if (text == "-0") "0" else text
+            }
+        }
     }
 
     private companion object {

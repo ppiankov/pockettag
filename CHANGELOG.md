@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Saved places from manually entered coordinates or supported Google Maps links,
+  shared as map URLs without a location permission.
 - Saved multiline UTF-8 text notes with an editable language tag, shared as NFC Forum
   Text records.
 - Per-item counts of completed NFC reads, with a reset action and local-only storage.

@@ -316,7 +316,7 @@ class TagItemTest {
         assertEquals(json, ItemJson.encode(listOf(restored)))
         assertEquals(listOf(TagItem.Type.LINK, TagItem.Type.CONTACT, TagItem.Type.WHATSAPP,
             TagItem.Type.CALL, TagItem.Type.EMAIL, TagItem.Type.SMS,
-            TagItem.Type.NOTE), TagItem.Type.creatableTypes)
+            TagItem.Type.NOTE, TagItem.Type.PLACE), TagItem.Type.creatableTypes)
         assertFalse(TagItem.Type.creatableTypes.contains(TagItem.Type.RAW))
         val edited = ItemState(listOf(raw), raw.id)
             .save(TagItem.Raw(raw.label, " \texample.com\n", raw.id)).activeItem as TagItem.Raw

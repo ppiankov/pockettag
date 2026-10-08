@@ -102,6 +102,17 @@ class EditItemActivity : Activity() {
                 addField("text", R.string.field_note, item?.text.orEmpty(), multiline = true)
                 addField("language", R.string.field_language, item?.language ?: "en")
             }
+            // WO-9: maps links can supply coordinates without asking for the phone's location.
+            TagItem.Type.PLACE -> {
+                val item = existing as? TagItem.Place
+                addField("name", R.string.field_place_name, item?.name.orEmpty())
+                val numeric = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or
+                    InputType.TYPE_NUMBER_FLAG_SIGNED
+                addField("latitude", R.string.field_latitude, item?.latitude?.toString().orEmpty(), numeric)
+                addField("longitude", R.string.field_longitude, item?.longitude?.toString().orEmpty(), numeric)
+                addField("mapsLink", R.string.field_maps_link, "",
+                    InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+            }
         }
     }
 
@@ -146,6 +157,18 @@ class EditItemActivity : Activity() {
                     value("org"), value("title"), value("phone"), value("email"), value("url"), value("note"), id)
                 // WO-8: save only after the shared encoder validates the language and file size.
                 TagItem.Type.NOTE -> TagItem.Note(label, value("text"), value("language"), id)
+                // WO-9: a pasted maps link explicitly replaces the coordinate fields for this save.
+                TagItem.Type.PLACE -> {
+                    val coordinates = if (value("mapsLink").isNotBlank()) {
+                        TagItem.Place.coordinatesFromLink(value("mapsLink"))
+                    } else {
+                        val latitude = value("latitude").trim().toDoubleOrNull()
+                        val longitude = value("longitude").trim().toDoubleOrNull()
+                        require(latitude != null && longitude != null) { getString(R.string.error_coordinates) }
+                        latitude to longitude
+                    }
+                    TagItem.Place(label, coordinates.first, coordinates.second, value("name"), id)
+                }
             }
             NdefMessage.ndefFile(item.ndefMessage())
             store.save(item)
@@ -187,4 +210,5 @@ internal fun TagItem.Type.titleResource(): Int = when (this) {
     TagItem.Type.SMS -> R.string.type_sms
     TagItem.Type.RAW -> R.string.type_raw // WO-3: distinguish preserved legacy links.
     TagItem.Type.NOTE -> R.string.type_note // WO-8: the Add menu and editor share the Text item name.
+    TagItem.Type.PLACE -> R.string.type_place // WO-9: use the same name in the selector and editor.
 }

@@ -9,8 +9,9 @@ Your phone is the business card: choose what to share, then tap another phone.
 ## What PocketTag is
 
 A tiny Android app that makes the phone act like an NFC sticker carrying your selected
-web link, contact card (vCard), WhatsApp chat, call, email, SMS link, or text note. It emulates an NFC
-Forum Type 4 Tag through Android host card emulation (HCE) and serves one NDEF record.
+web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, or place.
+It emulates an NFC Forum Type 4 Tag through Android host card emulation (HCE) and serves
+one NDEF record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
 and NFC support. For links, the other phone needs nothing installed.
 
@@ -218,6 +219,9 @@ uses-permission: name='android.permission.NFC'
   by content type and installed apps; see the tested-devices table.
 - Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
   default). They can contain multiple lines; iPhone background reading does not show them.
+- Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
+  coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
+  not supported. PocketTag does not request your location or provide directions.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.

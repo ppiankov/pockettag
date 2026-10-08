@@ -35,6 +35,13 @@
     <!-- WO-8: identify plain-text items and their editable NFC language tag. -->
     <string name="type_note">Text note</string>
     <string name="field_language">Language (for example en or en-GB)</string>
+    <!-- WO-9: location is supplied by the operator rather than requested from Android. -->
+    <string name="type_place">Place</string>
+    <string name="field_place_name">Name (optional)</string>
+    <string name="field_latitude">Latitude (-90 to 90)</string>
+    <string name="field_longitude">Longitude (-180 to 180)</string>
+    <string name="field_maps_link">Google Maps link (instead of coordinates)</string>
+    <string name="error_coordinates">Enter decimal latitude and longitude, or a Google Maps link.</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>
