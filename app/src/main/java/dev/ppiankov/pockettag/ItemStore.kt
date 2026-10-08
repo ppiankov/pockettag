@@ -55,6 +55,9 @@ object ItemJson {
             is TagItem.Place -> json.put("latitude", item.latitude).put("longitude", item.longitude)
                 .put("name", item.name)
             is TagItem.App -> json.put("packageName", item.packageName) // WO-10: persist only the chosen package.
+            // WO-7: credentials remain in the private item document, with no diagnostic copy.
+            is TagItem.Wifi -> json.put("ssid", item.ssid).put("security", item.security.name)
+                .put("password", item.password).put("hidden", item.hidden)
         }
         return json
     }
@@ -141,6 +144,9 @@ object ItemJson {
             "place" -> TagItem.Place(label, json.number("latitude"), json.number("longitude"),
                 json.optionalString("name") ?: "", id)
             "app" -> TagItem.App(label, json.string("packageName"), id) // WO-10: apply package validation on load.
+            // WO-7: invalid credentials stay opaque instead of being coerced or discarded.
+            "wifi" -> TagItem.Wifi(label, json.string("ssid"), TagItem.Wifi.Security.valueOf(json.string("security")),
+                json.optionalString("password") ?: "", json.optionalBoolean("hidden") ?: false, id)
             else -> null
         }
     }
@@ -154,6 +160,10 @@ object ItemJson {
     // WO-9: JSON's numeric type is required rather than silently parsing a damaged string value.
     private fun JSONObject.number(key: String): Double =
         (get(key) as? Number)?.toDouble() ?: throw JSONException("Expected number: $key")
+
+    // WO-7: absent checkbox values default off; a wrong JSON type remains unreadable.
+    private fun JSONObject.optionalBoolean(key: String): Boolean? =
+        if (!has(key) || isNull(key)) null else get(key) as? Boolean ?: throw JSONException("Expected boolean: $key")
 }
 
 // WO-3: migration and list operations are pure; preference I/O cannot change their rules.

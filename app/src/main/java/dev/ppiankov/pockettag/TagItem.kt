@@ -29,7 +29,8 @@ sealed class TagItem(id: String, label: String) {
         CALL("call"), EMAIL("email"), SMS("sms"), RAW("raw"),
         NOTE("note"), // WO-8: append creatable types without changing saved discriminators.
         PLACE("place"), // WO-9: coordinates use a stable discriminator without a location permission.
-        APP("app"); // WO-10: Android application records have a stable saved type.
+        APP("app"), // WO-10: Android application records have a stable saved type.
+        WIFI("wifi"); // WO-7: Wi-Fi credentials use the existing private item document.
 
         companion object {
             // WO-3: legacy links remain editable but cannot be created from the Add menu.
@@ -250,6 +251,70 @@ sealed class TagItem(id: String, label: String) {
 
         private companion object {
             private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+") // WO-10: ASCII package grammar from the spec.
+        }
+    }
+
+    // WO-7: manually entered credentials form one WSC record without reading Android's saved networks.
+    class Wifi(
+        label: String,
+        val ssid: String, // WO-7: SSIDs retain their entered UTF-8 bytes, including spaces.
+        val security: Security, // WO-7: an explicit choice controls authentication and encryption attributes.
+        val password: String = "", // WO-7: private item content, never an APDU diagnostic field.
+        val hidden: Boolean = false, // WO-7: retain the operator's hidden-network choice when editing.
+        id: String = UUID.randomUUID().toString(),
+    ) : TagItem(id, label) {
+        override val type = Type.WIFI // WO-7: stable discriminator for Wi-Fi credentials.
+
+        // WO-7: WPA3-personal uses the operator-pinned WPA2-PSK WSC value for transition networks.
+        enum class Security { WPA2_PERSONAL, WPA3_PERSONAL, OPEN }
+
+        init {
+            require(ssid.toByteArray(Charsets.UTF_8).size in MIN_SSID_BYTES..MAX_SSID_BYTES) {
+                "Network name must contain 1 to 32 UTF-8 bytes."
+            }
+            require(security == Security.OPEN || password.length in MIN_PASSWORD_CHARACTERS..MAX_PASSWORD_CHARACTERS) {
+                "Password must contain 8 to 63 characters."
+            }
+        }
+
+        // WO-7: the closed attribute order keeps the WSC credential deterministic and omits keys for open networks.
+        override fun ndefMessage(): ByteArray {
+            val open = security == Security.OPEN
+            val credential = attribute(NETWORK_INDEX, byteArrayOf(NETWORK_NUMBER)) +
+                attribute(SSID, ssid.toByteArray(Charsets.UTF_8)) +
+                attribute(AUTHENTICATION_TYPE, word(if (open) AUTH_OPEN else AUTH_WPA2_PSK)) +
+                attribute(ENCRYPTION_TYPE, word(if (open) ENCRYPTION_NONE else ENCRYPTION_AES)) +
+                (if (open) ByteArray(0) else attribute(NETWORK_KEY, password.toByteArray(Charsets.UTF_8))) +
+                attribute(MAC_ADDRESS, ByteArray(MAC_ADDRESS_BYTES) { BROADCAST_BYTE })
+            return NdefMessage.mimeRecord("application/vnd.wfa.wsc", attribute(CREDENTIAL, credential))
+        }
+
+        private companion object {
+            private const val MIN_SSID_BYTES = 1 // WO-7: an empty SSID is not a shareable network.
+            private const val MAX_SSID_BYTES = 32 // WO-7: SSID limits apply to UTF-8 bytes, not characters.
+            private const val MIN_PASSWORD_CHARACTERS = 8 // WO-7: personal-network password lower bound.
+            private const val MAX_PASSWORD_CHARACTERS = 63 // WO-7: personal-network password upper bound.
+            private const val CREDENTIAL = 0x100E // WO-7: outer WSC Credential attribute.
+            private const val NETWORK_INDEX = 0x1026 // WO-7: first attribute in the credential.
+            private const val NETWORK_NUMBER: Byte = 1 // WO-7: one network per tag.
+            private const val SSID = 0x1045 // WO-7: UTF-8 network name attribute.
+            private const val AUTHENTICATION_TYPE = 0x1003 // WO-7: two-byte authentication value.
+            private const val AUTH_OPEN = 0x0001 // WO-7: open-network authentication.
+            private const val AUTH_WPA2_PSK = 0x0020 // WO-7: shared value for both personal security choices.
+            private const val ENCRYPTION_TYPE = 0x100F // WO-7: two-byte encryption value.
+            private const val ENCRYPTION_NONE = 0x0001 // WO-7: open networks have no encryption key.
+            private const val ENCRYPTION_AES = 0x0008 // WO-7: personal networks use AES.
+            private const val NETWORK_KEY = 0x1027 // WO-7: omitted completely for open networks.
+            private const val MAC_ADDRESS = 0x1020 // WO-7: final credential attribute.
+            private const val MAC_ADDRESS_BYTES = 6 // WO-7: broadcast address length.
+            private const val BROADCAST_BYTE: Byte = 0xFF.toByte() // WO-7: no peer MAC is required.
+            private const val BITS_PER_BYTE = 8 // WO-7: type and length words use big-endian bytes.
+
+            // WO-7: WSC TLVs wrap values without introducing a second NDEF record encoder.
+            private fun attribute(type: Int, value: ByteArray): ByteArray = word(type) + word(value.size) + value
+
+            // WO-7: attribute types, lengths, and numeric values share the required two-byte byte order.
+            private fun word(value: Int): ByteArray = byteArrayOf((value ushr BITS_PER_BYTE).toByte(), value.toByte())
         }
     }
 

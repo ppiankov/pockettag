@@ -9,7 +9,8 @@ Your phone is the business card: choose what to share, then tap another phone.
 ## What PocketTag is
 
 A tiny Android app that makes the phone act like an NFC sticker carrying your selected
-web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, place, or Android app.
+web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, place,
+Android app, or Wi-Fi network.
 It emulates an NFC Forum Type 4 Tag through Android host card emulation (HCE) and serves
 one NDEF record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
@@ -186,7 +187,8 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
   settings stay in the same preferences file.
 - `NdefHostApduService.kt`: hands APDUs to `Type4Tag` and snapshots the active item's NDEF
   file on each application SELECT. Disabled serving, no selection, or an encoding error
-  returns `6A82` (application not found).
+  returns `6A82` (application not found). Wi-Fi READ BINARY replies are recorded only as
+  byte counts, before logging or saving the tap trace.
 - `MainActivity.kt` and `EditItemActivity.kt`: selector and type-specific editor, built
   only from framework widgets.
 - `res/xml/apduservice.xml`: registers the NDEF application AID `D2760000850101`.
@@ -225,6 +227,11 @@ uses-permission: name='android.permission.NFC'
 - App items use an Android Application Record: the reader opens the installed app or its
   Play Store page. Enter the package name after `id=` in its store URL. iPhone background
   reading does not act on these records.
+- Wi-Fi items are for Android readers that support WSC tags; iPhone background reading
+  ignores them. SSIDs are limited to 32 UTF-8 bytes and personal-network passwords to
+  8–63 characters. WPA3 personal is shared as WPA2-PSK for transition-mode networks;
+  enterprise networks are not supported. The password is stored in the app's private
+  preferences on the phone, and is omitted from the tap trace.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.

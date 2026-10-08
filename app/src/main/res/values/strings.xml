@@ -46,6 +46,17 @@
     <string name="type_app">Android app</string>
     <string name="field_package_name">Android package name</string>
     <string name="hint_package_name">After id= in the app’s Play Store URL</string>
+    <!-- WO-7: enter a test or guest network manually, with a masked password by default. -->
+    <string name="type_wifi">Wi-Fi network</string>
+    <string name="field_ssid">Network name (SSID)</string>
+    <string name="field_security">Security</string>
+    <string name="security_wpa2">WPA2 personal</string>
+    <string name="security_wpa3">WPA3 personal</string>
+    <string name="security_open">Open</string>
+    <string name="field_wifi_password">Password</string>
+    <string name="show_wifi_password">Show password</string>
+    <string name="hidden_network">Hidden network</string>
+    <string name="error_wifi_security">Choose network security.</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>

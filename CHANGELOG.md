@@ -8,6 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Saved Wi-Fi network items as WSC tags, with security choices, a masked password field,
+  a show toggle, and a hidden-network checkbox. Wi-Fi reads omit response bytes from logs
+  and the saved tap trace.
 - Saved Android app items shared as Android Application Records, with manual package-name
   validation and no installed-app enumeration.
 - Saved places from manually entered coordinates or supported Google Maps links,

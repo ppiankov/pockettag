@@ -41,7 +41,12 @@ object TagPrefs {
     fun lastTrace(context: Context): String? = prefs(context).getString(KEY_TRACE, null)
 
     fun saveTrace(context: Context, trace: String) {
-        prefs(context).edit().putString(KEY_TRACE, trace).apply()
+        saveTrace(prefs(context), trace)
+    }
+
+    // WO-7: JVM fakes exercise the actual trace write after response redaction.
+    internal fun saveTrace(prefs: SharedPreferences, trace: String) {
+        prefs.edit().putString(KEY_TRACE, trace).apply()
     }
 
     fun url(context: Context): String =
@@ -153,6 +158,52 @@ object TagPrefs {
     private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 }
 
+// WO-7: sanitize at the session boundary before either logging or persisting any response.
+internal class TapTrace(
+    private val maxLines: Int, // WO-7: retain the existing bounded trace history.
+    private val maxHex: Int, // WO-7: retain the existing bound on non-sensitive APDU hex.
+    private val log: (String) -> Unit, // WO-7: logs receive only the already-sanitized line.
+    private val persist: (String) -> Unit, // WO-7: preference writes share the same sanitized text.
+) {
+    private val lines = mutableListOf<String>() // WO-7: raw response bytes are never retained here.
+    private var wifiSession = false // WO-7: sensitivity belongs to the file captured at application SELECT.
+
+    // WO-7: the same saved-item snapshot determines both served bytes and trace sensitivity.
+    fun snapshot(state: ItemState, enabled: Boolean): ByteArray? {
+        resetSession()
+        return state.ndefFile(enabled)?.also { wifiSession = state.activeItem is TagItem.Wifi }
+    }
+
+    // WO-7: a refused selection or deactivation cannot retain an earlier session's sensitivity.
+    fun resetSession() {
+        wifiSession = false
+    }
+
+    // WO-7: mask the complete READ BINARY reply before it can become hex or reach either sink.
+    fun record(command: ByteArray, response: ByteArray) {
+        val reply = if (wifiSession && command.size > 1 && command[1] == INS_READ_BINARY) {
+            "<${response.size} bytes>"
+        } else response.toHex(maxHex)
+        val line = "> ${command.toHex(maxHex)}  < $reply"
+        log(line)
+        if (lines.size < maxLines) lines.add(line)
+        persist("Tap in progress\n" + lines.joinToString("\n"))
+    }
+
+    // WO-7: final persistence reuses sanitized lines instead of rebuilding raw APDU data.
+    fun deactivate(time: String, reason: Int) {
+        if (lines.isNotEmpty()) {
+            persist("Last tap $time (deactivated: $reason)\n" + lines.joinToString("\n"))
+            lines.clear()
+        }
+        resetSession()
+    }
+
+    private companion object {
+        private val INS_READ_BINARY: Byte = 0xB0.toByte() // WO-7: only this instruction returns credential data.
+    }
+}
+
 /**
  * Answers the reader's Type 4 Tag APDUs. Android routes APDUs here after the reader selects
  * the NDEF application AID declared in res/xml/apduservice.xml.
@@ -165,11 +216,12 @@ class NdefHostApduService : HostApduService() {
     private fun currentNdefFile(): ByteArray? {
         // WO-12: a refused selection must not retain an earlier item's count destination.
         servedItemId = null
+        trace.resetSession() // WO-7: unavailable content cannot inherit an earlier Wi-Fi session flag.
         if (!TagPrefs.enabled(this)) return null
         return try {
             // WO-12: snapshot identity and encoded content from the same saved-item state.
             val state = ItemStore(this).load()
-            state.ndefFile(enabled = true)?.also { servedItemId = state.activeItemId }
+            trace.snapshot(state, enabled = true)?.also { servedItemId = state.activeItemId }
         } catch (_: Exception) {
             null
         }
@@ -185,7 +237,9 @@ class NdefHostApduService : HostApduService() {
         }
     }
 
-    private val trace = mutableListOf<String>()
+    // WO-7: both diagnostic sinks use the same session-aware sanitizer.
+    private val trace = TapTrace(MAX_TRACE_LINES, MAX_TRACE_HEX,
+        log = { Log.d(LOG_TAG, it) }, persist = { TagPrefs.saveTrace(this, it) })
 
     override fun processCommandApdu(commandApdu: ByteArray?, extras: Bundle?): ByteArray {
         if (commandApdu == null) return Type4Constants.SW_WRONG_P1P2
@@ -198,19 +252,12 @@ class NdefHostApduService : HostApduService() {
         tag.reset()
         // WO-12: deactivation releases the identity bound to the completed-read session.
         servedItemId = null
-        if (trace.isNotEmpty()) {
-            val time = DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date())
-            TagPrefs.saveTrace(this, "Last tap $time (deactivated: $reason)\n" + trace.joinToString("\n"))
-            trace.clear()
-        }
+        val time = DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date())
+        trace.deactivate(time, reason) // WO-7: a finished trace contains no raw Wi-Fi READ BINARY replies.
     }
 
     private fun record(command: ByteArray, response: ByteArray) {
-        val line = "> ${command.toHex(MAX_TRACE_HEX)}  < ${response.toHex(MAX_TRACE_HEX)}"
-        Log.d(LOG_TAG, line)
-        if (trace.size < MAX_TRACE_LINES) trace.add(line)
-        // Persist as we go: a reader that drops the field early may never trigger onDeactivated.
-        TagPrefs.saveTrace(this, "Tap in progress\n" + trace.joinToString("\n"))
+        trace.record(command, response) // WO-7: redaction happens before logging and incremental persistence.
     }
 
     private companion object {
