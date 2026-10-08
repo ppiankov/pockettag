@@ -164,6 +164,8 @@ class EditItemActivity : Activity() {
                 addField("password", R.string.field_wifi_password, item?.password.orEmpty(),
                     InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD)
                 val password = fields.getValue("password")
+                // WO-7: initialize masking after the shared single-line field setup.
+                password.transformationMethod = PasswordTransformationMethod.getInstance()
                 val show = CheckBox(this).apply {
                     setText(R.string.show_wifi_password)
                     setOnCheckedChangeListener { _, checked ->
