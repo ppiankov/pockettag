@@ -272,8 +272,11 @@ sealed class TagItem(id: String, label: String) {
             require(ssid.toByteArray(Charsets.UTF_8).size in MIN_SSID_BYTES..MAX_SSID_BYTES) {
                 "Network name must contain 1 to 32 UTF-8 bytes."
             }
-            require(security == Security.OPEN || password.length in MIN_PASSWORD_CHARACTERS..MAX_PASSWORD_CHARACTERS) {
-                "Password must contain 8 to 63 characters."
+            // WO-7: printable ASCII keeps personal passphrases within their character and byte limits.
+            require(security == Security.OPEN ||
+                (password.length in MIN_PASSWORD_CHARACTERS..MAX_PASSWORD_CHARACTERS &&
+                    password.all { it.code in MIN_PRINTABLE_ASCII..MAX_PRINTABLE_ASCII })) {
+                "Password must be 8 to 63 ASCII characters."
             }
         }
 
@@ -294,6 +297,8 @@ sealed class TagItem(id: String, label: String) {
             private const val MAX_SSID_BYTES = 32 // WO-7: SSID limits apply to UTF-8 bytes, not characters.
             private const val MIN_PASSWORD_CHARACTERS = 8 // WO-7: personal-network password lower bound.
             private const val MAX_PASSWORD_CHARACTERS = 63 // WO-7: personal-network password upper bound.
+            private const val MIN_PRINTABLE_ASCII = 0x20 // WO-7: spaces are valid passphrase characters.
+            private const val MAX_PRINTABLE_ASCII = 0x7E // WO-7: exclude control and non-ASCII characters.
             private const val CREDENTIAL = 0x100E // WO-7: outer WSC Credential attribute.
             private const val NETWORK_INDEX = 0x1026 // WO-7: first attribute in the credential.
             private const val NETWORK_NUMBER: Byte = 1 // WO-7: one network per tag.

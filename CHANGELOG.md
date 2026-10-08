@@ -27,6 +27,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Personal-network Wi-Fi passphrases require 8–63 printable ASCII characters.
 - Failed built-in tag writes explain the attempted byte length as a likely size issue
   for `STATUS_FAILED` and `ERROR_INVALID_LENGTH`.
 - Booth confirmation now keeps the last completed read's local time, including seconds,

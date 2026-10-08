@@ -227,11 +227,13 @@ uses-permission: name='android.permission.NFC'
 - App items use an Android Application Record: the reader opens the installed app or its
   Play Store page. Enter the package name after `id=` in its store URL.
   App items are not yet tested on iPhone.
-- Wi-Fi items are for Android readers that support WSC tags; iPhone background reading
-  ignores them. SSIDs are limited to 32 UTF-8 bytes and personal-network passwords to
-  8–63 characters. WPA3 personal is shared as WPA2-PSK for transition-mode networks;
+- Wi-Fi items are for Android readers that support WSC tags; not yet tested on iPhone.
+  SSIDs are limited to 32 UTF-8 bytes and personal-network passwords to 8–63 printable
+  ASCII characters. WPA3 personal is shared as WPA2-PSK for transition-mode networks;
   enterprise networks are not supported. The password is stored in the app's private
   preferences on the phone, and is omitted from the tap trace.
+  Anyone whose phone taps this one receives the network password, including while this
+  phone is locked in chip mode; choose a guest network.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.

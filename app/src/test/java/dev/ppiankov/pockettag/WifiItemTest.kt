@@ -72,6 +72,29 @@ class WifiItemTest {
         }
     }
 
+    // WO-7: a valid character count must not admit Unicode, control characters, or DEL.
+    @Test
+    fun personalNetworksRejectNonPrintableAsciiPasswords() {
+        listOf(TagItem.Wifi.Security.WPA2_PERSONAL, TagItem.Wifi.Security.WPA3_PERSONAL).forEach { security ->
+            listOf("abcdefgé", "abcdefg\u001f", "abcdefg\u007f", "abcdefg😀").forEach { password ->
+                val error = assertThrows(IllegalArgumentException::class.java) {
+                    TagItem.Wifi("Test", "Test", security, password)
+                }
+                assertEquals("Password must be 8 to 63 ASCII characters.", error.message)
+            }
+        }
+    }
+
+    // WO-7: both ends of printable ASCII are valid, and spaces remain part of the passphrase.
+    @Test
+    fun personalNetworksAcceptPrintableAsciiBoundaries() {
+        val password = " ~".repeat(4)
+        listOf(TagItem.Wifi.Security.WPA2_PERSONAL, TagItem.Wifi.Security.WPA3_PERSONAL).forEach { security ->
+            val item = TagItem.Wifi("Test", "Test", security, password)
+            assertEquals(password, item.password)
+        }
+    }
+
     @Test
     fun emptyAndThirtyThreeByteSsidsAreRejected() {
         listOf("", "s".repeat(33)).forEach { ssid ->
