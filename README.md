@@ -225,8 +225,8 @@ uses-permission: name='android.permission.NFC'
   coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
   not supported. PocketTag does not request your location or provide directions.
 - App items use an Android Application Record: the reader opens the installed app or its
-  Play Store page. Enter the package name after `id=` in its store URL. iPhone background
-  reading does not act on these records.
+  Play Store page. Enter the package name after `id=` in its store URL.
+  App items are not yet tested on iPhone.
 - Wi-Fi items are for Android readers that support WSC tags; iPhone background reading
   ignores them. SSIDs are limited to 32 UTF-8 bytes and personal-network passwords to
   8–63 characters. WPA3 personal is shared as WPA2-PSK for transition-mode networks;
