@@ -220,7 +220,7 @@ uses-permission: name='android.permission.NFC'
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
 - Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
-  default). They can contain multiple lines; iPhone background reading does not show them.
+  default). They can contain multiple lines; not yet tested on iPhone.
 - Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
   coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
   not supported. PocketTag does not request your location or provide directions.
