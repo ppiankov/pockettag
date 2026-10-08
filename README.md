@@ -9,7 +9,7 @@ Your phone is the business card: choose what to share, then tap another phone.
 ## What PocketTag is
 
 A tiny Android app that makes the phone act like an NFC sticker carrying your selected
-web link, contact card (vCard), WhatsApp chat, call, email, or SMS link. It emulates an NFC
+web link, contact card (vCard), WhatsApp chat, call, email, SMS link, or text note. It emulates an NFC
 Forum Type 4 Tag through Android host card emulation (HCE) and serves one NDEF record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
 and NFC support. For links, the other phone needs nothing installed.
@@ -174,7 +174,7 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
 
 - `TagItem.kt`: pure Kotlin content types, input validation, URI generation, and vCard 3.0
   encoding (UTF-8, escaped values, CRLF endings, no line folding).
-- `NdefMessage.kt`: pure Kotlin URI and MIME record encoders, using short records through
+- `NdefMessage.kt`: pure Kotlin URI, Text, and MIME record encoders, using short records through
   255 payload bytes and four-byte lengths beyond that. The NDEF file adds a two-byte NLEN;
   the Capability Container advertises a 1024-byte maximum. `Type4Tag` is the APDU state
   machine: SELECT application → SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
@@ -216,6 +216,8 @@ uses-permission: name='android.permission.NFC'
   of NDEF message, including record headers. Large contact cards or messages may not fit.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
+- Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
+  default). They can contain multiple lines; iPhone background reading does not show them.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.

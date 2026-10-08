@@ -1,5 +1,8 @@
 package dev.ppiankov.pockettag
 
+import java.util.IllformedLocaleException
+import java.util.Locale
+
 // Pure encoding and APDU logic for an NFC Forum Type 4 Tag (mapping version 2.0).
 // No Android imports, so all of it is covered by JVM unit tests.
 
@@ -38,6 +41,22 @@ object NdefMessage {
     fun uriRecord(url: String): ByteArray =
         record(HEADER_SHORT_WELL_KNOWN, byteArrayOf(TYPE_URI), uriPayload(url))
 
+    // WO-8: UTF-8 text shares the existing record-length encoder with URI and MIME content.
+    fun textRecord(text: String, language: String = "en"): ByteArray {
+        require(text.isNotEmpty()) { "Note is empty; not saved." }
+        val languageBytes = language.toByteArray(Charsets.US_ASCII)
+        val languageError = "Language must be a BCP-47 tag of at most 63 ASCII bytes."
+        require(languageBytes.size in 1..MAX_TEXT_LANGUAGE_BYTES &&
+            language.all { it.code in 0x21..0x7E }) { languageError }
+        try {
+            Locale.Builder().setLanguageTag(language)
+        } catch (_: IllformedLocaleException) {
+            throw IllegalArgumentException(languageError)
+        }
+        return record(HEADER_SHORT_WELL_KNOWN, byteArrayOf(TYPE_TEXT),
+            byteArrayOf(languageBytes.size.toByte()) + languageBytes + text.toByteArray(Charsets.UTF_8))
+    }
+
     // WO-3: contact cards use a single media-type record with the same length rules.
     fun mimeRecord(type: String, payload: ByteArray): ByteArray {
         val typeBytes = type.toByteArray(Charsets.US_ASCII)
@@ -73,6 +92,8 @@ object NdefMessage {
     }
 
     private const val HEADER_SHORT_MIME: Byte = 0xD2.toByte() // WO-3: MB, ME, SR, media TNF.
+    private const val TYPE_TEXT: Byte = 0x54 // WO-8: NFC Forum well-known Text record type.
+    private const val MAX_TEXT_LANGUAGE_BYTES = 63 // WO-8: UTF-8 status reserves six bits for language length.
     private const val SR_MASK = 0x10 // WO-3: short-record flag in the record header.
     private const val NLEN_SIZE = 2 // WO-3: Type 4 file length prefix in bytes.
 }

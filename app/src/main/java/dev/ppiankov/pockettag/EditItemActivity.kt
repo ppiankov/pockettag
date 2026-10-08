@@ -96,6 +96,12 @@ class EditItemActivity : Activity() {
                     InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
                 addField("note", R.string.field_note, item?.note.orEmpty(), multiline = true)
             }
+            // WO-8: multiline text and its language are editable without rewriting free text.
+            TagItem.Type.NOTE -> {
+                val item = existing as? TagItem.Note
+                addField("text", R.string.field_note, item?.text.orEmpty(), multiline = true)
+                addField("language", R.string.field_language, item?.language ?: "en")
+            }
         }
     }
 
@@ -138,6 +144,8 @@ class EditItemActivity : Activity() {
                 TagItem.Type.SMS -> TagItem.Sms(label, value("number"), value("body"), id)
                 TagItem.Type.CONTACT -> TagItem.Contact(label, value("givenName"), value("familyName"),
                     value("org"), value("title"), value("phone"), value("email"), value("url"), value("note"), id)
+                // WO-8: save only after the shared encoder validates the language and file size.
+                TagItem.Type.NOTE -> TagItem.Note(label, value("text"), value("language"), id)
             }
             NdefMessage.ndefFile(item.ndefMessage())
             store.save(item)
@@ -178,4 +186,5 @@ internal fun TagItem.Type.titleResource(): Int = when (this) {
     TagItem.Type.EMAIL -> R.string.type_email
     TagItem.Type.SMS -> R.string.type_sms
     TagItem.Type.RAW -> R.string.type_raw // WO-3: distinguish preserved legacy links.
+    TagItem.Type.NOTE -> R.string.type_note // WO-8: the Add menu and editor share the Text item name.
 }

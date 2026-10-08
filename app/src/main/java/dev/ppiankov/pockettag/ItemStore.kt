@@ -49,6 +49,8 @@ object ItemJson {
                 .put("familyName", item.familyName).put("org", item.org).put("title", item.title)
                 .put("phone", item.phone).put("email", item.email).put("url", item.url)
                 .put("note", item.note)
+            // WO-8: store language separately so Text records survive an edit unchanged.
+            is TagItem.Note -> json.put("text", item.text).put("language", item.language)
         }
         return json
     }
@@ -129,6 +131,8 @@ object ItemJson {
                 json.optionalString("phone") ?: "", json.optionalString("email") ?: "",
                 json.optionalString("url") ?: "", json.optionalString("note") ?: "", id,
             )
+            // WO-8: notes without an explicit language use the editor's English default.
+            "note" -> TagItem.Note(label, json.string("text"), json.optionalString("language") ?: "en", id)
             else -> null
         }
     }

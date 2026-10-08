@@ -22,7 +22,8 @@ sealed class TagItem(id: String, label: String) {
     // WO-3: explicit storage names keep JSON independent of Kotlin class names.
     enum class Type(val storageName: String) {
         LINK("link"), CONTACT("contact"), WHATSAPP("whatsapp"),
-        CALL("call"), EMAIL("email"), SMS("sms"), RAW("raw");
+        CALL("call"), EMAIL("email"), SMS("sms"), RAW("raw"),
+        NOTE("note"); // WO-8: append creatable types without changing saved discriminators.
 
         companion object {
             // WO-3: legacy links remain editable but cannot be created from the Add menu.
@@ -145,6 +146,21 @@ sealed class TagItem(id: String, label: String) {
             val payload = lines.joinToString("\r\n", postfix = "\r\n").toByteArray(Charsets.UTF_8)
             return NdefMessage.mimeRecord("text/vcard", payload)
         }
+    }
+
+    // WO-8: preserve plain text while validating the language with the shared Text encoder.
+    class Note(
+        label: String,
+        val text: String, // WO-8: multiline UTF-8 content remains exactly as entered.
+        language: String = "en",
+        id: String = UUID.randomUUID().toString(),
+    ) : TagItem(id, label) {
+        override val type = Type.NOTE // WO-8: stable JSON discriminator for Text records.
+        val language: String = language.trim() // WO-8: pasted language tags may have surrounding whitespace.
+        init {
+            NdefMessage.textRecord(text, this.language)
+        }
+        override fun ndefMessage(): ByteArray = NdefMessage.textRecord(text, language)
     }
 
     private companion object {

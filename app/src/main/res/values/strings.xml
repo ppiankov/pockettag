@@ -32,6 +32,9 @@
     <string name="type_email">Email</string>
     <string name="type_sms">SMS</string>
     <string name="type_raw">Saved link</string>
+    <!-- WO-8: identify plain-text items and their editable NFC language tag. -->
+    <string name="type_note">Text note</string>
+    <string name="field_language">Language (for example en or en-GB)</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>
