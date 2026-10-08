@@ -246,8 +246,12 @@ data class ItemState(
 // WO-3: share the existing pockettag preferences with serving and diagnostic settings.
 class ItemStore internal constructor(
     private val prefs: SharedPreferences, // WO-3: exercise the real write boundary without Android I/O.
+    private val requestChipSync: (() -> Unit)? = null, // WO-2: JVM fakes observe the actual persistence trigger.
+    private val context: Context? = null, // WO-2: production writes synchronize using the application context.
 ) {
-    constructor(context: Context) : this(context.getSharedPreferences("pockettag", Context.MODE_PRIVATE))
+    // WO-2: retain no activity while the background chip worker completes its transaction.
+    constructor(context: Context) : this(context.getSharedPreferences("pockettag", Context.MODE_PRIVATE),
+        context = context.applicationContext)
 
     // WO-3: write the migration once, atomically, without touching the legacy URL or other keys.
     fun load(): ItemState {
@@ -341,6 +345,8 @@ class ItemStore internal constructor(
         // WO-12: a deletion's count change shares the item edit, without altering the item schema.
         if (counts != null) editor.putString(TAP_COUNTS_KEY, JSONObject(counts).toString())
         editor.apply()
+        // WO-2: item edits, selection, deletion, and migration share this sole content trigger.
+        if (requestChipSync != null) requestChipSync() else context?.let { ChipSync.request(it) }
     }
 
     companion object {

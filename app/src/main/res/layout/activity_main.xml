@@ -47,11 +47,28 @@
         android:layout_marginTop="16dp"
         android:text="@string/enabled" />
 
+    <!-- WO-2: capability detection reveals the opt-in without a probe write. -->
+    <Switch
+        android:id="@+id/chip_mode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/chip_mode"
+        android:visibility="gone" />
+
     <TextView
         android:id="@+id/status"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp" />
+
+    <!-- WO-2: an unknown controller outcome keeps a recovery action visible. -->
+    <Button
+        android:id="@+id/chip_retry"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/chip_retry"
+        android:visibility="gone" />
 
     <Switch
         android:id="@+id/diagnostics"

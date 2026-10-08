@@ -22,6 +22,9 @@ class MainActivity : Activity() {
     private lateinit var items: LinearLayout // WO-3: stored-order item rows.
     private val store by lazy { ItemStore(this) } // WO-3: shared selection and content.
     private lateinit var enabledSwitch: Switch
+    private lateinit var chipSwitch: Switch // WO-2: optional chip publication is separate from global serving.
+    private lateinit var chipRetry: Button // WO-2: unknown controller outcomes retain a recovery action.
+    private var renderingChipSwitch = false // WO-2: reflecting saved state must not publish or confirm it again.
     private lateinit var status: TextView
     private lateinit var trace: TextView
 
@@ -35,6 +38,12 @@ class MainActivity : Activity() {
                 refreshItems()
                 refreshStatus(null)
             }
+            // WO-2: verification and switch changes refresh the chip status without rewriting saved content.
+            if (key == TagPrefs.KEY_CHIP_MODE || key == TagPrefs.KEY_ENABLED ||
+                key == TagPrefs.KEY_VERIFIED_CHIP) {
+                refreshChipSwitch()
+                refreshStatus(null)
+            }
             refreshTrace()
         } }
 
@@ -44,6 +53,9 @@ class MainActivity : Activity() {
         // WO-3: the selected content replaces the former single URL field.
         items = findViewById(R.id.items)
         enabledSwitch = findViewById(R.id.enabled)
+        // WO-2: hidden-by-default controls become available only after content API detection.
+        chipSwitch = findViewById(R.id.chip_mode)
+        chipRetry = findViewById(R.id.chip_retry)
         status = findViewById(R.id.status)
         trace = findViewById(R.id.trace)
 
@@ -59,6 +71,26 @@ class MainActivity : Activity() {
             TagPrefs.setEnabled(this, checked)
             refreshStatus(null)
         }
+        // WO-2: canceling the first-enable warning leaves chip mode off without requesting a write.
+        chipSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!renderingChipSwitch) {
+                if (checked && !TagPrefs.chipModeConfirmed(this)) {
+                    refreshChipSwitch()
+                    AlertDialog.Builder(this).setTitle(R.string.chip_confirm_title)
+                        .setMessage(R.string.chip_confirm_message)
+                        .setPositiveButton(R.string.chip_confirm) { _, _ ->
+                            TagPrefs.setChipMode(this, true)
+                            refreshChipSwitch()
+                            refreshStatus(null)
+                        }.setNegativeButton(android.R.string.cancel, null).show()
+                } else {
+                    TagPrefs.setChipMode(this, checked)
+                    refreshStatus(null)
+                }
+            }
+        }
+        chipRetry.setOnClickListener { ChipSync.retry(this) }
+        refreshChipSwitch()
 
         val diagnostics = findViewById<Switch>(R.id.diagnostics)
         diagnostics.isChecked = TagPrefs.showTrace(this)
@@ -66,6 +98,8 @@ class MainActivity : Activity() {
             TagPrefs.setShowTrace(this, checked)
             refreshTrace()
         }
+        // WO-2: startup also empties stale controller content when chip mode and Serve tag are off.
+        ChipSync.reconcile(this)
     }
 
     override fun onResume() {
@@ -76,8 +110,18 @@ class MainActivity : Activity() {
         TagPrefs.listen(this, prefsListener)
         // WO-3: edits return through onResume, including deletion of the last item.
         refreshItems()
+        // WO-2: returning from another screen reflects the persisted opt-in without a new write.
+        refreshChipSwitch()
         refreshStatus(null)
         refreshTrace()
+    }
+
+    // WO-2: programmatic rendering never invokes the opt-in or opt-out persistence trigger.
+    private fun refreshChipSwitch() {
+        renderingChipSwitch = true
+        chipSwitch.visibility = if (ChipSync.available(this)) View.VISIBLE else View.GONE
+        chipSwitch.isChecked = TagPrefs.chipMode(this)
+        renderingChipSwitch = false
     }
 
     override fun onPause() {
@@ -134,21 +178,34 @@ class MainActivity : Activity() {
         val savedItems = store.load()
         findViewById<Button>(R.id.add_item).isEnabled = savedItems.readable
         val selected = savedItems.activeItem
+        // WO-2: global off has priority and requires fresh, exact EMPTY verification on capable phones.
+        val chipAvailable = ChipSync.available(this)
+        val serving = TagPrefs.enabled(this)
+        val chipMode = chipAvailable && TagPrefs.chipMode(this)
+        val chipDisplay = if (chipAvailable) ChipSync.display(this, savedItems) else null
+        val chipMessage = chipDisplay?.let { ChipSync.message(this, it, selected?.label.orEmpty()) }
         val state = when {
+            chipAvailable && !serving -> chipMessage
             !savedItems.readable -> getString(R.string.status_unreadable)
             selected == null -> getString(R.string.status_no_item)
             adapter == null -> getString(R.string.status_no_nfc)
             !hce -> getString(R.string.status_no_hce)
             !adapter.isEnabled -> getString(R.string.status_nfc_off)
-            !TagPrefs.enabled(this) -> getString(R.string.status_paused)
+            !serving -> getString(R.string.status_paused)
+            // WO-2: controller-served content is reported from verification rather than HCE routing.
+            chipMode -> chipMessage
             // WO-3: identify the selected content by its saved label.
             else -> getString(R.string.status_serving, selected.label)
         }
-        val routing = cardEmulation()?.let {
+        // WO-2: an HCE routing summary cannot describe a chip-mode response or certify the kill switch.
+        val routing = if (chipMode || (chipAvailable && !serving)) null else cardEmulation()?.let {
             val isDefault = it.isDefaultServiceForAid(service, Type4Constants.NDEF_AID_HEX)
             getString(if (isDefault) R.string.routing_ok else R.string.routing_other)
         }
-        status.text = listOfNotNull(prefix, state, routing).joinToString("\n")
+        // WO-2: even with chip mode off, any unknown residual content remains visible with Retry.
+        val chipDetails = if (chipAvailable && serving && state != chipMessage) chipMessage else null
+        status.text = listOfNotNull(prefix, state, chipDetails, routing).joinToString("\n")
+        chipRetry.visibility = if (chipDisplay == ChipDisplay.UNKNOWN) View.VISIBLE else View.GONE
     }
 
     private fun refreshTrace() {

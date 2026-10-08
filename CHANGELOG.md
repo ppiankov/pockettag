@@ -11,6 +11,19 @@ All notable changes to this project are documented here. The format follows
 - Per-item counts of completed NFC reads, with a reset action and local-only storage.
 - Booth mode with a full-screen sharing display, screen-on handling, readiness warnings,
   and brief feedback after completed reads.
+- Opt-in built-in tag mode on supported NXP phones, with exact read-back verification,
+  an EMPTY fallback for failed items, persistent unknown-state warnings, and Retry.
+
+### Changed
+
+- Booth confirmation now keeps the last completed read's local time, including seconds,
+  visible until the item changes, its count is reset, or booth mode is left.
+- Serve tag off also empties the built-in tag, independently of the chip-mode setting;
+  app startup reconciles stale content. Booth mode identifies chip reads as uncounted.
+- Built-in tag checks show "Checking the built-in tag…" while pending; warnings and Retry
+  appear only after a failed check.
+- Recorded built-in tag and Booth device results, including Sony contact-card failure
+  and Samsung web-link reads from Booth and the main screen.
 
 ## [0.2.0] - 2026-10-03
 

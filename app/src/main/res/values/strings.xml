@@ -59,7 +59,22 @@
     <!-- WO-15: the booth screen makes sharing readiness and completed reads visible. -->
     <string name="booth_mode">Booth mode</string>
     <string name="booth_instruction">Hold your phone against the back of this one</string>
-    <string name="booth_sent">Sent</string>
+    <!-- WO-18: include the localized time so feedback remains useful after separation. -->
+    <string name="booth_sent_at">Sent at %1$s</string>
     <string name="booth_nfc_settings">Open NFC settings</string>
     <string name="status_item_invalid">The selected item cannot be shared.</string>
+    <!-- WO-2: chip controls distinguish verified content from an unknown controller outcome. -->
+    <string name="chip_mode">Use the phone\'s built-in tag (answers even when locked)</string>
+    <string name="chip_confirm_title">Use the built-in tag?</string>
+    <string name="chip_confirm_message">The phone\'s NFC chip answers without the app, including when the phone is locked. It may also answer when switched off. Switching this mode off empties the built-in tag. To stop it at any time, switch Serve tag off. Uninstalling does not stop it. Switch Serve tag off and verify the tag is empty before uninstalling.</string>
+    <string name="chip_confirm">Confirm</string>
+    <string name="chip_serving">Built-in tag serves %1$s, even when the phone is locked.</string>
+    <string name="chip_empty">Built-in tag is empty.</string>
+    <string name="chip_off_empty">Off. The built-in tag is verified empty.</string>
+    <string name="chip_item_failed">The phone\'s built-in tag could not hold this item; it now serves nothing.</string>
+    <!-- WO-2: an in-flight check does not warrant the failed-transaction warning or Retry. -->
+    <string name="chip_pending">Checking the built-in tag…</string>
+    <string name="chip_unknown">The phone may still be serving the previous item. Turn NFC off to stop it.</string>
+    <string name="chip_retry">Retry</string>
+    <string name="booth_chip_note">The built-in tag answers taps; this screen cannot count them.</string>
 </resources>

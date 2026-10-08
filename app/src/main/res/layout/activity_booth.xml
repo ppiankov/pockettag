@@ -46,6 +46,15 @@
             android:text="@string/booth_nfc_settings"
             android:visibility="gone" />
 
+        <!-- WO-2: controller recovery is reachable without leaving the booth screen. -->
+        <Button
+            android:id="@+id/booth_chip_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/chip_retry"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/booth_count"
             android:layout_width="match_parent"
@@ -54,6 +63,7 @@
             android:gravity="center"
             android:textSize="36sp" />
 
+        <!-- WO-18: the timestamp is populated only after a read observed on this screen. -->
         <TextView
             android:id="@+id/booth_sent"
             android:layout_width="match_parent"
@@ -61,7 +71,6 @@
             android:layout_marginTop="16dp"
             android:accessibilityLiveRegion="polite"
             android:gravity="center"
-            android:text="@string/booth_sent"
             android:textSize="32sp"
             android:textStyle="bold"
             android:visibility="invisible" />

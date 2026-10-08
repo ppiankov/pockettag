@@ -11,13 +11,13 @@ import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.TextView
+import java.text.DateFormat
+import java.util.Date
 
 // WO-15: keep the selected content, readiness, and completed reads visible at a stand.
 class BoothActivity : Activity() {
@@ -28,16 +28,18 @@ class BoothActivity : Activity() {
     private lateinit var count: TextView // WO-15: selected item's completed-read count.
     private lateinit var sent: TextView // WO-15: brief feedback for a new completed read.
     private lateinit var nfcSettings: Button // WO-15: recovery action for disabled NFC.
-    private val handler = Handler(Looper.getMainLooper()) // WO-15: feedback runs on the UI thread.
-    private val hideSent = Runnable { sent.visibility = View.INVISIBLE } // WO-15: end the feedback flash.
+    private lateinit var chipRetry: Button // WO-2: controller verification failures remain recoverable here.
     private var resumed = false // WO-15: ignore callbacks after the screen becomes inactive.
     private var lastItemId: String? = null // WO-15: switching items must not look like a tap.
     private var lastCount = 0 // WO-15: compare only counts observed while this screen is visible.
+    private var lastSentAt: Long? = null // WO-18: retain confirmation until its visible-read baseline changes.
 
     // WO-15: diagnostics writes do not affect booth content or readiness.
     private val prefsListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == ItemStore.ITEMS_KEY || key == ItemStore.ACTIVE_ID_KEY ||
-            key == TagPrefs.KEY_ENABLED || key == ItemStore.TAP_COUNTS_KEY) {
+            key == TagPrefs.KEY_ENABLED || key == ItemStore.TAP_COUNTS_KEY ||
+            // WO-2: chip state and verification changes refresh the booth warning in place.
+            key == TagPrefs.KEY_CHIP_MODE || key == TagPrefs.KEY_VERIFIED_CHIP) {
             runOnUiThread { if (resumed) refresh() }
         }
     }
@@ -58,6 +60,9 @@ class BoothActivity : Activity() {
         sent = findViewById(R.id.booth_sent)
         nfcSettings = findViewById(R.id.booth_nfc_settings)
         nfcSettings.setOnClickListener { startActivity(Intent(Settings.ACTION_NFC_SETTINGS)) }
+        // WO-2: Retry recomputes the current goal without changing saved content or switches.
+        chipRetry = findViewById(R.id.booth_chip_retry)
+        chipRetry.setOnClickListener { ChipSync.retry(this) }
     }
 
     override fun onResume() {
@@ -81,7 +86,9 @@ class BoothActivity : Activity() {
         resumed = false
         TagPrefs.unlisten(this, prefsListener)
         unregisterReceiver(nfcReceiver)
-        handler.removeCallbacks(hideSent)
+        // WO-18: reentering booth mode cannot display a confirmation from the previous visit.
+        lastSentAt = null
+        sent.text = ""
         sent.visibility = View.INVISIBLE
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // WO-15: cleanup must complete even when the device rejects the preferred route.
@@ -94,13 +101,19 @@ class BoothActivity : Activity() {
         val savedItems = store.load()
         val selected = savedItems.activeItem
         val adapter = runCatching { NfcAdapter.getDefaultAdapter(this) }.getOrNull()
+        // WO-2: the chip answers independently of HCE, so its proof and count limitation are explicit.
+        val chipAvailable = ChipSync.available(this)
+        val chipMode = chipAvailable && TagPrefs.chipMode(this)
+        val serving = TagPrefs.enabled(this)
+        val chipDisplay = if (chipAvailable) ChipSync.display(this, savedItems) else null
         val state = boothStatus(
             readable = savedItems.readable,
             hasItem = selected != null,
             nfcAvailable = adapter != null,
             hceAvailable = packageManager.hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION),
             nfcEnabled = runCatching { adapter?.isEnabled == true }.getOrDefault(false),
-            serving = TagPrefs.enabled(this),
+            // WO-2: the global Serve tag setting governs both the host and controller paths.
+            serving = serving,
             itemEncodes = savedItems.ndefFile(enabled = true) != null,
         )
         label.text = selected?.label.orEmpty()
@@ -114,24 +127,50 @@ class BoothActivity : Activity() {
             BoothStatus.ITEM_INVALID -> getString(R.string.status_item_invalid)
             BoothStatus.READY -> getString(R.string.status_serving, selected?.label.orEmpty())
         }
+        // WO-2: never show Paused as proof of chip shutdown; off requires an exact EMPTY read-back.
+        if (chipAvailable && !serving) {
+            status.text = ChipSync.message(this, chipDisplay!!, selected?.label.orEmpty())
+        } else if (chipMode) {
+            val message = ChipSync.message(this, chipDisplay!!, selected?.label.orEmpty())
+            if (state == BoothStatus.READY) status.text = message else status.append("\n" + message)
+        } else if (chipDisplay == ChipDisplay.PENDING || chipDisplay == ChipDisplay.UNKNOWN) {
+            // WO-2: HCE mode also distinguishes an in-flight chip check from a failed transaction.
+            status.append("\n" + ChipSync.message(this, chipDisplay, selected?.label.orEmpty()))
+        }
+        if (chipMode) status.append("\n" + getString(R.string.booth_chip_note))
+        chipRetry.visibility = if (chipDisplay == ChipDisplay.UNKNOWN) View.VISIBLE else View.GONE
         nfcSettings.visibility = if (state == BoothStatus.NFC_OFF) View.VISIBLE else View.GONE
 
         val currentCount = selected?.let { store.tapCounts()[it.id] } ?: 0
         count.text = resources.getQuantityString(R.plurals.tap_count, currentCount, currentCount)
+        // WO-2: old host-read counts cannot imply that controller-served taps are being counted.
+        count.visibility = if (chipMode) View.GONE else View.VISIBLE
         // WO-15: selection changes, resets, and resumes clear feedback instead of inventing a tap.
-        if (!flashChanges || selected?.id != lastItemId || currentCount < lastCount) {
-            handler.removeCallbacks(hideSent)
-            sent.visibility = View.INVISIBLE
-        } else if (selected != null && currentCount > lastCount) {
-            sent.visibility = View.VISIBLE
-            handler.removeCallbacks(hideSent)
-            handler.postDelayed(hideSent, SENT_FLASH_MS)
-        }
+        // WO-18: retain only timestamps for count increases observed with the same visible selection.
+        lastSentAt = boothSentAt(lastItemId, lastCount, selected?.id, currentCount,
+            // WO-2: chip reads never create a booth Sent confirmation.
+            flashChanges && !chipMode, lastSentAt, System.currentTimeMillis())
+        sent.text = lastSentAt?.let {
+            getString(R.string.booth_sent_at, DateFormat.getTimeInstance(DateFormat.MEDIUM).format(Date(it)))
+        }.orEmpty()
+        sent.visibility = if (lastSentAt == null) View.INVISIBLE else View.VISIBLE
         lastItemId = selected?.id
         lastCount = currentCount
     }
 
-    companion object {
-        private const val SENT_FLASH_MS = 2000L // WO-15: keep each completed-read confirmation visible for two seconds.
-    }
+}
+
+// WO-18: resume, selection changes, and count resets cannot masquerade as a newly completed read.
+internal fun boothSentAt(
+    previousItemId: String?,
+    previousCount: Int,
+    currentItemId: String?,
+    currentCount: Int,
+    observeRead: Boolean,
+    previousSentAt: Long?,
+    now: Long,
+): Long? = when {
+    !observeRead || currentItemId != previousItemId || currentCount < previousCount -> null
+    currentItemId != null && currentCount > previousCount -> now
+    else -> previousSentAt
 }
