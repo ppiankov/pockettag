@@ -113,6 +113,13 @@ class EditItemActivity : Activity() {
                 addField("mapsLink", R.string.field_maps_link, "",
                     InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
             }
+            // WO-10: enter a store identifier without enumerating installed apps.
+            TagItem.Type.APP -> {
+                addField("packageName", R.string.field_package_name,
+                    (existing as? TagItem.App)?.packageName.orEmpty(),
+                    InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
+                fields.getValue("packageName").setHint(R.string.hint_package_name)
+            }
         }
     }
 
@@ -169,6 +176,7 @@ class EditItemActivity : Activity() {
                     }
                     TagItem.Place(label, coordinates.first, coordinates.second, value("name"), id)
                 }
+                TagItem.Type.APP -> TagItem.App(label, value("packageName"), id) // WO-10: validate before persistence.
             }
             NdefMessage.ndefFile(item.ndefMessage())
             store.save(item)
@@ -211,4 +219,5 @@ internal fun TagItem.Type.titleResource(): Int = when (this) {
     TagItem.Type.RAW -> R.string.type_raw // WO-3: distinguish preserved legacy links.
     TagItem.Type.NOTE -> R.string.type_note // WO-8: the Add menu and editor share the Text item name.
     TagItem.Type.PLACE -> R.string.type_place // WO-9: use the same name in the selector and editor.
+    TagItem.Type.APP -> R.string.type_app // WO-10: Android app records share the selector's title mapping.
 }

@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Saved Android app items shared as Android Application Records, with manual package-name
+  validation and no installed-app enumeration.
 - Saved places from manually entered coordinates or supported Google Maps links,
   shared as map URLs without a location permission.
 - Saved multiline UTF-8 text notes with an editable language tag, shared as NFC Forum

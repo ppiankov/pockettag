@@ -28,7 +28,8 @@ sealed class TagItem(id: String, label: String) {
         LINK("link"), CONTACT("contact"), WHATSAPP("whatsapp"),
         CALL("call"), EMAIL("email"), SMS("sms"), RAW("raw"),
         NOTE("note"), // WO-8: append creatable types without changing saved discriminators.
-        PLACE("place"); // WO-9: coordinates use a stable discriminator without a location permission.
+        PLACE("place"), // WO-9: coordinates use a stable discriminator without a location permission.
+        APP("app"); // WO-10: Android application records have a stable saved type.
 
         companion object {
             // WO-3: legacy links remain editable but cannot be created from the Add menu.
@@ -228,6 +229,27 @@ sealed class TagItem(id: String, label: String) {
                     .trimEnd('0').trimEnd('.')
                 return if (text == "-0") "0" else text
             }
+        }
+    }
+
+    // WO-10: the Android reader chooses an installed app or its store page from one package name.
+    class App(
+        label: String,
+        packageName: String,
+        id: String = UUID.randomUUID().toString(),
+    ) : TagItem(id, label) {
+        override val type = Type.APP // WO-10: explicit discriminator for Android Application Records.
+        val packageName: String = packageName.trim() // WO-10: pasted store identifiers are ASCII package names.
+        init {
+            require(PACKAGE_NAME.matches(this.packageName)) {
+                "Package name needs two or more dot-separated segments, each starting with a letter."
+            }
+        }
+        override fun ndefMessage(): ByteArray =
+            NdefMessage.externalRecord("android.com:pkg", packageName.toByteArray(Charsets.US_ASCII))
+
+        private companion object {
+            private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+") // WO-10: ASCII package grammar from the spec.
         }
     }
 

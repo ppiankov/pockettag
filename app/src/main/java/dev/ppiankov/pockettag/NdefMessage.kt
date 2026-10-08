@@ -67,6 +67,14 @@ object NdefMessage {
         return record(HEADER_SHORT_MIME, typeBytes, payload)
     }
 
+    // WO-10: external records share the existing short/long header encoder.
+    fun externalRecord(type: String, payload: ByteArray): ByteArray {
+        val typeBytes = type.toByteArray(Charsets.US_ASCII)
+        require(typeBytes.isNotEmpty() && typeBytes.size <= MAX_SHORT_PAYLOAD &&
+            type.all { it.code in 0x21..0x7E }) { "External type must contain between 1 and 255 ASCII bytes." }
+        return record(HEADER_SHORT_EXTERNAL, typeBytes, payload)
+    }
+
     // WO-3: clearing SR changes the length field to four big-endian bytes.
     private fun record(shortHeader: Byte, type: ByteArray, payload: ByteArray): ByteArray {
         val short = payload.size <= MAX_SHORT_PAYLOAD
@@ -92,6 +100,7 @@ object NdefMessage {
     }
 
     private const val HEADER_SHORT_MIME: Byte = 0xD2.toByte() // WO-3: MB, ME, SR, media TNF.
+    private const val HEADER_SHORT_EXTERNAL: Byte = 0xD4.toByte() // WO-10: MB, ME, SR, external TNF.
     private const val TYPE_TEXT: Byte = 0x54 // WO-8: NFC Forum well-known Text record type.
     private const val MAX_TEXT_LANGUAGE_BYTES = 63 // WO-8: UTF-8 status reserves six bits for language length.
     private const val SR_MASK = 0x10 // WO-3: short-record flag in the record header.

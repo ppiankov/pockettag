@@ -42,6 +42,10 @@
     <string name="field_longitude">Longitude (-180 to 180)</string>
     <string name="field_maps_link">Google Maps link (instead of coordinates)</string>
     <string name="error_coordinates">Enter decimal latitude and longitude, or a Google Maps link.</string>
+    <!-- WO-10: a manual package field avoids requesting access to installed apps. -->
+    <string name="type_app">Android app</string>
+    <string name="field_package_name">Android package name</string>
+    <string name="hint_package_name">After id= in the app’s Play Store URL</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>

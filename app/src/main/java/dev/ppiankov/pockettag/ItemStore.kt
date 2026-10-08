@@ -54,6 +54,7 @@ object ItemJson {
             // WO-9: decimal coordinates and the optional name survive selection and editing.
             is TagItem.Place -> json.put("latitude", item.latitude).put("longitude", item.longitude)
                 .put("name", item.name)
+            is TagItem.App -> json.put("packageName", item.packageName) // WO-10: persist only the chosen package.
         }
         return json
     }
@@ -139,6 +140,7 @@ object ItemJson {
             // WO-9: reject coerced coordinate strings so unreadable entries remain preserved.
             "place" -> TagItem.Place(label, json.number("latitude"), json.number("longitude"),
                 json.optionalString("name") ?: "", id)
+            "app" -> TagItem.App(label, json.string("packageName"), id) // WO-10: apply package validation on load.
             else -> null
         }
     }

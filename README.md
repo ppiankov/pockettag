@@ -9,7 +9,7 @@ Your phone is the business card: choose what to share, then tap another phone.
 ## What PocketTag is
 
 A tiny Android app that makes the phone act like an NFC sticker carrying your selected
-web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, or place.
+web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, place, or Android app.
 It emulates an NFC Forum Type 4 Tag through Android host card emulation (HCE) and serves
 one NDEF record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
@@ -175,7 +175,7 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
 
 - `TagItem.kt`: pure Kotlin content types, input validation, URI generation, and vCard 3.0
   encoding (UTF-8, escaped values, CRLF endings, no line folding).
-- `NdefMessage.kt`: pure Kotlin URI, Text, and MIME record encoders, using short records through
+- `NdefMessage.kt`: pure Kotlin URI, Text, MIME, and external-type record encoders, using short records through
   255 payload bytes and four-byte lengths beyond that. The NDEF file adds a two-byte NLEN;
   the Capability Container advertises a 1024-byte maximum. `Type4Tag` is the APDU state
   machine: SELECT application → SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
@@ -222,6 +222,9 @@ uses-permission: name='android.permission.NFC'
 - Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
   coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
   not supported. PocketTag does not request your location or provide directions.
+- App items use an Android Application Record: the reader opens the installed app or its
+  Play Store page. Enter the package name after `id=` in its store URL. iPhone background
+  reading does not act on these records.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.
