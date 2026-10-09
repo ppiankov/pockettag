@@ -111,8 +111,10 @@ length. For `ERROR_RF_ACTIVATED`, move the phones apart before tapping **Retry**
 
 On the Sony XQ-BC72, a 99-byte contact card and a 340-byte long web link published with
 verified read-back. A 431-byte contact card and a 440-byte web link both returned
-`STATUS_FAILED` and fell back to verified empty, so the limit is size, not item type: it
-lies somewhere between 341 and 430 bytes.
+`STATUS_FAILED` and fell back to verified empty. Dummy ASCII HTTPS links narrowed the
+boundary: 348 bytes of NDEF content wrote and verified; 349 bytes returned `STATUS_FAILED`
+with verified empty afterward. Their tag files are 350 and 351 bytes including the
+two-byte length field. This is a measured boundary for those links on this Sony.
 
 **Before uninstalling, switch Serve tag off and wait for the verified-empty status.**
 Uninstalling does not stop the built-in tag. Writing an empty record is not secure
@@ -147,6 +149,10 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (chip mode, 99-byte contact card) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; contact import offered on one tap |
 | Sony Xperia XQ-BC72 (chip mode, 340-byte long web link) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; reader tried to open the URL on one tap |
 | Sony Xperia XQ-BC72 (chip mode, 440-byte long web link) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser |
+| Sony Xperia XQ-BC72 (chip mode, 440-byte web link, size warning) | — | `STATUS_FAILED`, fallback to verified empty; the screen says the item is probably too large and now serves nothing |
+| Sony Xperia XQ-BC72 (chip mode, 348-byte dummy web link) | — | `WRITTEN`, verified read-back; 350-byte tag file including the length field |
+| Sony Xperia XQ-BC72 (chip mode, 349-byte dummy web link) | — | `STATUS_FAILED`, fallback to verified empty; 351-byte tag file including the length field |
+| Sony Xperia XQ-BC72 (chip mode, normal web link restored) | — | `WRITTEN`, verified read-back; current status confirms the web link is serving |
 | Sony Xperia XQ-BC72 (Serve tag off) | Samsung Galaxy S25 | built-in tag verified empty; reader reports "unknown tag type" |
 | Sony Xperia XQ-BC72 (powered off, built-in tag empty) | Samsung Galaxy S25 | no response while fully off; reader reports "unknown tag type" at the boot logo |
 | Samsung Galaxy S25 (PocketTag not on screen) | Huawei P40 | **works**, two taps: the S25 asks whether its built-in "Embedded Tag" or PocketTag should answer |
@@ -252,8 +258,9 @@ uses-permission: name='android.permission.NFC'
   so PocketTag never sees the request; the Sony Xperia XQ-BC72 is one. Results per device are
   in the table above. If a tap fails, switch on **Show last tap details**: the trace shows whether any
   command arrived. The trace stays on the phone and can include bytes of the selected content.
-- On the Sony XQ-BC72, a 431-byte contact card did not publish to the built-in tag and fell
-  back to empty; the cause is under investigation, while web links work.
+- On the Sony XQ-BC72, a 431-byte contact card and a 440-byte web link did not publish to
+  the built-in tag and fell back to verified empty. Dummy web links wrote and verified at
+  348 bytes of NDEF content and were rejected at 349; see Chip mode above.
 - On the Galaxy S25 the first tap shows a chooser between Samsung's "Embedded Tag" and
   PocketTag unless PocketTag is on screen (main screen or Booth mode), where one tap was
   observed.
