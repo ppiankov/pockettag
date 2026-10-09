@@ -49,6 +49,15 @@ object ItemJson {
                 .put("familyName", item.familyName).put("org", item.org).put("title", item.title)
                 .put("phone", item.phone).put("email", item.email).put("url", item.url)
                 .put("note", item.note)
+            // WO-8: store language separately so Text records survive an edit unchanged.
+            is TagItem.Note -> json.put("text", item.text).put("language", item.language)
+            // WO-9: decimal coordinates and the optional name survive selection and editing.
+            is TagItem.Place -> json.put("latitude", item.latitude).put("longitude", item.longitude)
+                .put("name", item.name)
+            is TagItem.App -> json.put("packageName", item.packageName) // WO-10: persist only the chosen package.
+            // WO-7: credentials remain in the private item document, with no diagnostic copy.
+            is TagItem.Wifi -> json.put("ssid", item.ssid).put("security", item.security.name)
+                .put("password", item.password).put("hidden", item.hidden)
         }
         return json
     }
@@ -129,6 +138,15 @@ object ItemJson {
                 json.optionalString("phone") ?: "", json.optionalString("email") ?: "",
                 json.optionalString("url") ?: "", json.optionalString("note") ?: "", id,
             )
+            // WO-8: notes without an explicit language use the editor's English default.
+            "note" -> TagItem.Note(label, json.string("text"), json.optionalString("language") ?: "en", id)
+            // WO-9: reject coerced coordinate strings so unreadable entries remain preserved.
+            "place" -> TagItem.Place(label, json.number("latitude"), json.number("longitude"),
+                json.optionalString("name") ?: "", id)
+            "app" -> TagItem.App(label, json.string("packageName"), id) // WO-10: apply package validation on load.
+            // WO-7: invalid credentials stay opaque instead of being coerced or discarded.
+            "wifi" -> TagItem.Wifi(label, json.string("ssid"), TagItem.Wifi.Security.valueOf(json.string("security")),
+                json.optionalString("password") ?: "", json.optionalBoolean("hidden") ?: false, id)
             else -> null
         }
     }
@@ -138,6 +156,14 @@ object ItemJson {
 
     private fun JSONObject.optionalString(key: String): String? =
         if (!has(key) || isNull(key)) null else string(key)
+
+    // WO-9: JSON's numeric type is required rather than silently parsing a damaged string value.
+    private fun JSONObject.number(key: String): Double =
+        (get(key) as? Number)?.toDouble() ?: throw JSONException("Expected number: $key")
+
+    // WO-7: absent checkbox values default off; a wrong JSON type remains unreadable.
+    private fun JSONObject.optionalBoolean(key: String): Boolean? =
+        if (!has(key) || isNull(key)) null else get(key) as? Boolean ?: throw JSONException("Expected boolean: $key")
 }
 
 // WO-3: migration and list operations are pure; preference I/O cannot change their rules.

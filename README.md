@@ -9,8 +9,10 @@ Your phone is the business card: choose what to share, then tap another phone.
 ## What PocketTag is
 
 A tiny Android app that makes the phone act like an NFC sticker carrying your selected
-web link, contact card (vCard), WhatsApp chat, call, email, or SMS link. It emulates an NFC
-Forum Type 4 Tag through Android host card emulation (HCE) and serves one NDEF record.
+web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, place,
+Android app, or Wi-Fi network.
+It emulates an NFC Forum Type 4 Tag through Android host card emulation (HCE) and serves
+one NDEF record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
 and NFC support. For links, the other phone needs nothing installed.
 
@@ -70,6 +72,10 @@ installation starts with the same default web link.
 Nonzero tap counts appear under each saved item; hold an item and tap **Reset count** to
 clear its count.
 
+Switch **Keep screen awake** on to prevent automatic screen timeout while PocketTag's main
+screen is visible. It starts off and remembers your choice. Leaving the screen lets the
+phone time out normally; the power button still locks it.
+
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
 unavailable, and **Sent at &lt;time&gt;** stays visible after each completed read, with seconds
@@ -101,14 +107,18 @@ reconciles the chip with the current switches and selection, clearing stale cont
 If an item does not fit the controller, the app attempts to empty it and reports whether
 that was verified. There is no assumed controller capacity. The existing 1024-byte tag
 file limit still applies to saved items.
+For `STATUS_FAILED` or `ERROR_INVALID_LENGTH`, the failed-item warning includes the
+attempted byte length and says the item is probably too large.
 
 Switch on **Show last tap details** to see the last built-in tag write status and byte
 length. For `ERROR_RF_ACTIVATED`, move the phones apart before tapping **Retry**.
 
 On the Sony XQ-BC72, a 99-byte contact card and a 340-byte long web link published with
 verified read-back. A 431-byte contact card and a 440-byte web link both returned
-`STATUS_FAILED` and fell back to verified empty, so the limit is size, not item type: it
-lies somewhere between 341 and 430 bytes.
+`STATUS_FAILED` and fell back to verified empty. Dummy ASCII HTTPS links narrowed the
+boundary: 348 bytes of NDEF content wrote and verified; 349 bytes returned `STATUS_FAILED`
+with verified empty afterward. Their tag files are 350 and 351 bytes including the
+two-byte length field. This is a measured boundary for those links on this Sony.
 
 **Before uninstalling, switch Serve tag off and wait for the verified-empty status.**
 Uninstalling does not stop the built-in tag. Writing an empty record is not secure
@@ -126,6 +136,15 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 call) | Samsung Galaxy S25 | **works**: dialer opens with the number |
 | Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
+| Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
+| Huawei P40 (text note) | iPhone 11 | no visible response on a flat, aligned retap; PocketTag's completed-read count increased |
+| Huawei P40 (place) | Samsung Galaxy S25 | **works**: a map opens at the chosen landmark after a retap; the P40's Access Cards screen appeared on one attempt |
+| Huawei P40 (place) | iPhone 11 | **works**: Google Maps opens |
+| Huawei P40 (app, installed Calculator) | Samsung Galaxy S25 | **works**: Calculator opens |
+| Huawei P40 (app, Firefox not installed) | Samsung Galaxy S25 | **works**: an app-store chooser appears, then Play Store offers installation |
+| Huawei P40 (app) | iPhone 11 | no visible response; PocketTag's completed-read count increased |
+| Huawei P40 (Wi-Fi) | Samsung Galaxy S25 | **works**: Connect offered and the test network joined after retries; the P40's Access Cards screen also appeared |
+| Huawei P40 (Wi-Fi) | iPhone 11 | no visible response; a completed read was not confirmed |
 | Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
@@ -134,6 +153,10 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (chip mode, 99-byte contact card) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; contact import offered on one tap |
 | Sony Xperia XQ-BC72 (chip mode, 340-byte long web link) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; reader tried to open the URL on one tap |
 | Sony Xperia XQ-BC72 (chip mode, 440-byte long web link) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser |
+| Sony Xperia XQ-BC72 (chip mode, 440-byte web link, size warning) | — | `STATUS_FAILED`, fallback to verified empty; the screen says the item is probably too large and now serves nothing |
+| Sony Xperia XQ-BC72 (chip mode, 348-byte dummy web link) | — | `WRITTEN`, verified read-back; 350-byte tag file including the length field |
+| Sony Xperia XQ-BC72 (chip mode, 349-byte dummy web link) | — | `STATUS_FAILED`, fallback to verified empty; 351-byte tag file including the length field |
+| Sony Xperia XQ-BC72 (chip mode, normal web link restored) | — | `WRITTEN`, verified read-back; current status confirms the web link is serving |
 | Sony Xperia XQ-BC72 (Serve tag off) | Samsung Galaxy S25 | built-in tag verified empty; reader reports "unknown tag type" |
 | Sony Xperia XQ-BC72 (powered off, built-in tag empty) | Samsung Galaxy S25 | no response while fully off; reader reports "unknown tag type" at the boot logo |
 | Samsung Galaxy S25 (PocketTag not on screen) | Huawei P40 | **works**, two taps: the S25 asks whether its built-in "Embedded Tag" or PocketTag should answer |
@@ -172,7 +195,7 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
 
 - `TagItem.kt`: pure Kotlin content types, input validation, URI generation, and vCard 3.0
   encoding (UTF-8, escaped values, CRLF endings, no line folding).
-- `NdefMessage.kt`: pure Kotlin URI and MIME record encoders, using short records through
+- `NdefMessage.kt`: pure Kotlin URI, Text, MIME, and external-type record encoders, using short records through
   255 payload bytes and four-byte lengths beyond that. The NDEF file adds a two-byte NLEN;
   the Capability Container advertises a 1024-byte maximum. `Type4Tag` is the APDU state
   machine: SELECT application → SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
@@ -183,7 +206,8 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
   settings stay in the same preferences file.
 - `NdefHostApduService.kt`: hands APDUs to `Type4Tag` and snapshots the active item's NDEF
   file on each application SELECT. Disabled serving, no selection, or an encoding error
-  returns `6A82` (application not found).
+  returns `6A82` (application not found). Wi-Fi READ BINARY replies are recorded only as
+  byte counts, before logging or saving the tap trace.
 - `MainActivity.kt` and `EditItemActivity.kt`: selector and type-specific editor, built
   only from framework widgets.
 - `res/xml/apduservice.xml`: registers the NDEF application AID `D2760000850101`.
@@ -214,6 +238,23 @@ uses-permission: name='android.permission.NFC'
   of NDEF message, including record headers. Large contact cards or messages may not fit.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
+- Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
+  default). They can contain multiple lines. In the iPhone 11 check, no visible response
+  appeared despite PocketTag recording completed reads.
+- Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
+  coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
+  not supported. PocketTag does not request your location or provide directions.
+- App items use an Android Application Record: the reader opens the installed app or its
+  Play Store page. Enter the package name after `id=` in its store URL.
+  In the iPhone 11 check, no visible response appeared despite PocketTag recording completed reads.
+- Wi-Fi items are for Android readers that support WSC tags. The iPhone 11 check showed no
+  visible response; a completed read was not confirmed.
+  SSIDs are limited to 32 UTF-8 bytes and personal-network passwords to 8–63 printable
+  ASCII characters. WPA3 personal is shared as WPA2-PSK for transition-mode networks;
+  enterprise networks are not supported. The password is stored in the app's private
+  preferences on the phone, and is omitted from the tap trace.
+  Anyone whose phone taps this one receives the network password, including while this
+  phone is locked in chip mode; choose a guest network.
 - If another installed app also registers the NDEF AID, Android may ask which one to use.
 - Two phones both in reader mode will not see each other; the phone running PocketTag
   must be the one being read.
@@ -221,8 +262,9 @@ uses-permission: name='android.permission.NFC'
   so PocketTag never sees the request; the Sony Xperia XQ-BC72 is one. Results per device are
   in the table above. If a tap fails, switch on **Show last tap details**: the trace shows whether any
   command arrived. The trace stays on the phone and can include bytes of the selected content.
-- On the Sony XQ-BC72, a 431-byte contact card did not publish to the built-in tag and fell
-  back to empty; the cause is under investigation, while web links work.
+- On the Sony XQ-BC72, a 431-byte contact card and a 440-byte web link did not publish to
+  the built-in tag and fell back to verified empty. Dummy web links wrote and verified at
+  348 bytes of NDEF content and were rejected at 349; see Chip mode above.
 - On the Galaxy S25 the first tap shows a chooser between Samsung's "Embedded Tag" and
   PocketTag unless PocketTag is on screen (main screen or Booth mode), where one tap was
   observed.

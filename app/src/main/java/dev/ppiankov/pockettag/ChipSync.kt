@@ -73,6 +73,20 @@ internal fun chipRfHint(display: ChipDisplay?, outcome: ChipOutcome?): Boolean =
 internal fun chipRetryAvailable(display: ChipDisplay?, outcome: ChipOutcome?): Boolean =
     display == ChipDisplay.UNKNOWN || chipRfHint(display, outcome)
 
+// WO-20: only the measured failure and invalid-length code warrant a size suggestion, never a capacity assumption.
+internal fun chipSizeFailureMessage(
+    display: ChipDisplay?,
+    outcome: ChipOutcome?,
+    format: (Int) -> String,
+): String? {
+    if (display != ChipDisplay.ITEM_FAILED || outcome == null || outcome.goalLength <= 0) return null
+    // WO-20: unrelated failures do not establish size as a likely cause.
+    return when (outcome.failureStatus) {
+        ChipWriteStatus.STATUS_FAILED, ChipWriteStatus.ERROR_INVALID_LENGTH -> format(outcome.goalLength)
+        else -> null
+    }
+}
+
 // WO-2: serialize the entire write/read/fallback transaction and never interpret null as empty.
 internal class ChipTransaction(
     private val io: ChipIo, // WO-2: real reflection and JVM fakes share the same content-only contract.
@@ -314,16 +328,20 @@ internal object ChipSync {
     // WO-2: the selector and booth screen use the same exact verification and recovery wording.
     // WO-19: append RF recovery only for the final failed attempt, retaining every existing status message.
     fun message(context: Context, display: ChipDisplay, label: String): String {
+        // WO-20: one snapshot prevents combining a size reason with another request's RF hint.
+        val outcome = TagPrefs.lastChipOutcome(context)
         val message = when (display) {
             ChipDisplay.PENDING -> context.getString(R.string.chip_pending)
             ChipDisplay.UNKNOWN -> context.getString(R.string.chip_unknown)
             ChipDisplay.SERVING -> context.getString(R.string.chip_serving, label)
             ChipDisplay.EMPTY -> context.getString(R.string.chip_empty)
             ChipDisplay.OFF_EMPTY -> context.getString(R.string.chip_off_empty)
-            ChipDisplay.ITEM_FAILED -> context.getString(R.string.chip_item_failed)
+            ChipDisplay.ITEM_FAILED -> chipSizeFailureMessage(display, outcome) { length ->
+                context.resources.getQuantityString(R.plurals.chip_item_failed_size, length, length)
+            } ?: context.getString(R.string.chip_item_failed)
         }
         // WO-19: pending and verified states never inherit a prior RF failure's hint.
-        return if (chipRfHint(display, TagPrefs.lastChipOutcome(context))) {
+        return if (chipRfHint(display, outcome)) {
             message + "\n" + context.getString(R.string.chip_rf_active_hint)
         } else message
     }

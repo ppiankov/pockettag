@@ -8,6 +8,17 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Saved **Keep screen awake** switch for the main screen, default off, with normal timeout
+  restored when leaving it.
+- Saved Wi-Fi network items as WSC tags, with security choices, a masked password field,
+  a show toggle, and a hidden-network checkbox. Wi-Fi reads omit response bytes from logs
+  and the saved tap trace.
+- Saved Android app items shared as Android Application Records, with manual package-name
+  validation and no installed-app enumeration.
+- Saved places from manually entered coordinates or supported Google Maps links,
+  shared as map URLs without a location permission.
+- Saved multiline UTF-8 text notes with an editable language tag, shared as NFC Forum
+  Text records.
 - Per-item counts of completed NFC reads, with a reset action and local-only storage.
 - Booth mode with a full-screen sharing display, screen-on handling, readiness warnings,
   and brief feedback after completed reads.
@@ -18,6 +29,10 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Wi-Fi passwords start masked whenever their editor opens.
+- Personal-network Wi-Fi passphrases require 8–63 printable ASCII characters.
+- Failed built-in tag writes explain the attempted byte length as a likely size issue
+  for `STATUS_FAILED` and `ERROR_INVALID_LENGTH`.
 - Booth confirmation now keeps the last completed read's local time, including seconds,
   visible until the item changes, its count is reset, or booth mode is left.
 - Serve tag off also empties the built-in tag, independently of the chip-mode setting;
