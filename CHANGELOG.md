@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Saved **Keep screen awake** switch for the main screen, default off, with normal timeout
+  restored when leaving it.
 - Saved Wi-Fi network items as WSC tags, with security choices, a masked password field,
   a show toggle, and a hidden-network checkbox. Wi-Fi reads omit response bytes from logs
   and the saved tap trace.

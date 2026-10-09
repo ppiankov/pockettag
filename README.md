@@ -72,6 +72,10 @@ installation starts with the same default web link.
 Nonzero tap counts appear under each saved item; hold an item and tap **Reset count** to
 clear its count.
 
+Switch **Keep screen awake** on to prevent automatic screen timeout while PocketTag's main
+screen is visible. It starts off and remembers your choice. Leaving the screen lets the
+phone time out normally; the power button still locks it.
+
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
 unavailable, and **Sent at &lt;time&gt;** stays visible after each completed read, with seconds

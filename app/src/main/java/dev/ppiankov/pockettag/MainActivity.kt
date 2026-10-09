@@ -11,6 +11,7 @@ import android.nfc.NfcAdapter
 import android.nfc.cardemulation.CardEmulation
 import android.os.Bundle
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.RadioButton
@@ -22,6 +23,9 @@ class MainActivity : Activity() {
     private lateinit var items: LinearLayout // WO-3: stored-order item rows.
     private val store by lazy { ItemStore(this) } // WO-3: shared selection and content.
     private lateinit var enabledSwitch: Switch
+    private lateinit var keepScreenAwakeSwitch: Switch // WO-25: normal-screen timeout has its own saved choice.
+    private var renderingKeepScreenAwakeSwitch = false // WO-25: reflecting preferences must not persist them again.
+    private var resumed = false // WO-25: queued preference refreshes must not keep a paused screen awake.
     private lateinit var chipSwitch: Switch // WO-2: optional chip publication is separate from global serving.
     private lateinit var chipRetry: Button // WO-2: unknown controller outcomes retain a recovery action.
     private var renderingChipSwitch = false // WO-2: reflecting saved state must not publish or confirm it again.
@@ -46,6 +50,8 @@ class MainActivity : Activity() {
                 refreshChipSwitch()
                 refreshStatus(null)
             }
+            // WO-25: apply this preference without changing serving or chip publication.
+            if (key == TagPrefs.KEY_KEEP_SCREEN_AWAKE) refreshKeepScreenAwake()
             refreshTrace()
         } }
 
@@ -55,6 +61,9 @@ class MainActivity : Activity() {
         // WO-3: the selected content replaces the former single URL field.
         items = findViewById(R.id.items)
         enabledSwitch = findViewById(R.id.enabled)
+        // WO-25: bind and render before attaching the persistence listener.
+        keepScreenAwakeSwitch = findViewById(R.id.keep_screen_awake)
+        keepScreenAwakeSwitch.isChecked = TagPrefs.keepScreenAwake(this)
         // WO-2: hidden-by-default controls become available only after content API detection.
         chipSwitch = findViewById(R.id.chip_mode)
         chipRetry = findViewById(R.id.chip_retry)
@@ -72,6 +81,13 @@ class MainActivity : Activity() {
         enabledSwitch.setOnCheckedChangeListener { _, checked ->
             TagPrefs.setEnabled(this, checked)
             refreshStatus(null)
+        }
+        // WO-25: user changes update timeout immediately; rendering never writes the preference.
+        keepScreenAwakeSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!renderingKeepScreenAwakeSwitch) {
+                TagPrefs.setKeepScreenAwake(this, checked)
+                refreshKeepScreenAwake()
+            }
         }
         // WO-2: canceling the first-enable warning leaves chip mode off without requesting a write.
         chipSwitch.setOnCheckedChangeListener { _, checked ->
@@ -106,10 +122,13 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // WO-25: only the resumed normal screen may apply the saved awake choice.
+        resumed = true
         // While the app is open, claim the NDEF AID even if another app also registered it.
         // WO-15: an unavailable preferred route must not prevent opening the selector.
         runCatching { cardEmulation()?.setPreferredService(this, service) }
         TagPrefs.listen(this, prefsListener)
+        refreshKeepScreenAwake()
         // WO-3: edits return through onResume, including deletion of the last item.
         refreshItems()
         // WO-2: returning from another screen reflects the persisted opt-in without a new write.
@@ -126,7 +145,23 @@ class MainActivity : Activity() {
         renderingChipSwitch = false
     }
 
+    // WO-25: saved state controls only this window, including refreshes queued before a pause.
+    private fun refreshKeepScreenAwake() {
+        val enabled = TagPrefs.keepScreenAwake(this)
+        renderingKeepScreenAwakeSwitch = true
+        keepScreenAwakeSwitch.isChecked = enabled
+        renderingKeepScreenAwakeSwitch = false
+        if (mainScreenAwake(resumed, enabled)) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
     override fun onPause() {
+        // WO-25: clear before any cleanup so a late refresh cannot restore the awake flag.
+        resumed = false
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // WO-15: routing failures must not interrupt normal activity cleanup.
         runCatching { cardEmulation()?.unsetPreferredService(this) }
         TagPrefs.unlisten(this, prefsListener)
@@ -222,6 +257,9 @@ class MainActivity : Activity() {
         }
     }
 }
+
+// WO-25: a saved opt-in cannot prevent timeout after the normal screen has paused.
+internal fun mainScreenAwake(resumed: Boolean, enabled: Boolean): Boolean = resumed && enabled
 
 // WO-15: both foreground screens share the same guarded HCE lookup.
 internal fun Context.cardEmulation(): CardEmulation? = try {

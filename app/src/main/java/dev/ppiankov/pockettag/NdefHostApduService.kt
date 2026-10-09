@@ -13,6 +13,7 @@ object TagPrefs {
     private const val FILE = "pockettag"
     private const val KEY_URL = "url"
     internal const val KEY_ENABLED = "enabled" // WO-15: booth observers share the serving preference key.
+    internal const val KEY_KEEP_SCREEN_AWAKE = "keep_screen_awake" // WO-25: normal-screen timeout is an independent opt-in.
     internal const val KEY_CHIP_MODE = "chip_mode" // WO-2: chip publication remains an explicit opt-in.
     internal const val KEY_VERIFIED_CHIP = "last_verified_chip" // WO-2: stores pending work or byte-exact read-back proof.
     internal const val CHIP_PENDING = "pending" // WO-2: in-flight work must not look like a failed transaction.
@@ -53,6 +54,21 @@ object TagPrefs {
         prefs(context).getString(KEY_URL, DEFAULT_URL) ?: DEFAULT_URL
 
     fun enabled(context: Context): Boolean = prefs(context).getBoolean(KEY_ENABLED, true)
+
+    // WO-25: both activity rendering and JVM tests use the same default-off read.
+    fun keepScreenAwake(context: Context): Boolean = keepScreenAwake(prefs(context))
+
+    // WO-25: malformed saved values must not silently prevent screen timeout.
+    internal fun keepScreenAwake(prefs: SharedPreferences): Boolean =
+        runCatching { prefs.getBoolean(KEY_KEEP_SCREEN_AWAKE, false) }.getOrDefault(false)
+
+    // WO-25: changing screen timeout never requests a chip transaction.
+    fun setKeepScreenAwake(context: Context, enabled: Boolean) = setKeepScreenAwake(prefs(context), enabled)
+
+    // WO-25: preserve serving, chip verification and saved items when storing this choice.
+    internal fun setKeepScreenAwake(prefs: SharedPreferences, enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_KEEP_SCREEN_AWAKE, enabled).apply()
+    }
 
     // WO-2: missing or malformed chip settings cannot silently opt the phone into publication.
     fun chipMode(context: Context): Boolean =

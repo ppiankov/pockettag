@@ -6,6 +6,8 @@
     <string name="url_hint">https://example.com</string>
     <string name="save">Save</string>
     <string name="enabled">Serve tag</string>
+    <!-- WO-25: the main screen offers an explicit timeout opt-in. -->
+    <string name="keep_screen_awake">Keep screen awake</string>
     <string name="saved">Saved.</string>
     <string name="error_empty">URL is empty; not saved.</string>
     <string name="error_too_long">Item exceeds the 1024-byte tag file limit; not saved.</string>
