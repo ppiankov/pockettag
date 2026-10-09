@@ -132,6 +132,8 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
 | Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
 | Huawei P40 (text note) | iPhone 11 | no visible response on a flat, aligned retap; PocketTag's completed-read count increased |
+| Huawei P40 (place) | Samsung Galaxy S25 | **works**: a map opens at the chosen landmark after a retap; the P40's Access Cards screen appeared on one attempt |
+| Huawei P40 (place) | iPhone 11 | **works**: Google Maps opens |
 | Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
