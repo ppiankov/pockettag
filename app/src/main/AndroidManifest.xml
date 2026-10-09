@@ -26,6 +26,17 @@
             </intent-filter>
         </activity>
 
+        <!-- WO-21: sharing text reaches a draft receiver while the editor remains private. -->
+        <activity
+            android:name=".ShareReceiverActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
+
         <!-- WO-3: manual item editing is reachable only from the app's selector. -->
         <activity
             android:name=".EditItemActivity"

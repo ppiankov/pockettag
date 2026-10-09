@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Share-menu support for text and web links, with an editable draft and selection only
+  after Save.
 - Saved **Keep screen awake** switch for the main screen, default off, with normal timeout
   restored when leaving it.
 - Saved Wi-Fi network items as WSC tags, with security choices, a masked password field,
@@ -29,6 +31,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Oversized saves report the whole encoded tag file's byte count in the inline error.
 - Place editors accept full Google Maps `query=` links and decimal commas, reuse the
   plain coordinate format, and explain short links that need internet access.
 - Wi-Fi passwords start masked whenever their editor opens.

@@ -72,6 +72,11 @@ installation starts with the same default web link.
 Nonzero tap counts appear under each saved item; hold an item and tap **Reset count** to
 clear its count.
 
+**Share to PocketTag:** share text or a web link from another app, such as WhatsApp, and
+choose PocketTag. Review or edit the label and content, then tap **Save**. The new item
+becomes selected for the next tap. Press Back to cancel without saving or changing the
+selected item.
+
 Switch **Keep screen awake** on to prevent automatic screen timeout while PocketTag's main
 screen is visible. It starts off and remembers your choice. Leaving the screen lets the
 phone time out normally; the power button still locks it.
@@ -236,6 +241,8 @@ uses-permission: name='android.permission.NFC'
 - Tap counts measure completed NFC reads, not distinct people, and are stored only on the phone.
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
   of NDEF message, including record headers. Large contact cards or messages may not fit.
+- Share to PocketTag accepts text and links only; photos, files, and voice notes cannot
+  travel over a tap.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
 - Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by

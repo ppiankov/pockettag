@@ -10,7 +10,8 @@
     <string name="keep_screen_awake">Keep screen awake</string>
     <string name="saved">Saved.</string>
     <string name="error_empty">URL is empty; not saved.</string>
-    <string name="error_too_long">Item exceeds the 1024-byte tag file limit; not saved.</string>
+    <!-- WO-21: an oversized save reports the entire tag file, including its length prefix. -->
+    <string name="error_too_long">This item is %1$d bytes; the tag holds at most 1024. Not saved.</string>
     <string name="status_no_nfc">This device has no NFC.</string>
     <string name="status_no_hce">This device cannot emulate NFC tags (no HCE).</string>
     <string name="status_nfc_off">NFC is off. Turn it on in system settings.</string>
