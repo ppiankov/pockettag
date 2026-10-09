@@ -5,6 +5,7 @@ import java.util.Locale
 import org.json.JSONArray
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,7 +65,9 @@ class PlaceItemTest {
                 val error = assertThrows(IllegalArgumentException::class.java) {
                     TagItem.Place.coordinatesFromLink(link)
                 }
-                assertEquals("Could not read coordinates from this link", error.message)
+                // WO-24: the existing short-link fixture now receives the specified guidance.
+                assertEquals(if (link == "https://maps.app.goo.gl/example") SHORT_LINK_GUIDANCE
+                    else "Could not read coordinates from this link", error.message)
             }
     }
 
@@ -110,5 +113,71 @@ class PlaceItemTest {
         assertEquals("old-link", state.activeItemId)
         assertEquals("https://example.com/", state.activeItem?.uri)
         assertTrue(JSONArray(PRE_CLUSTER_JSON).similar(JSONArray(ItemJson.encode(state.document))))
+    }
+
+    // WO-24: full Maps links using the current API parameter remain usable as input.
+    @Test
+    fun apiQueryCoordinatesAreReadFromSupportedMapsHosts() {
+        listOf("google.com", "www.google.com", "maps.google.com").forEach { host ->
+            assertEquals(48.85837 to 2.294481, TagItem.Place.coordinatesFromLink(
+                "https://$host/maps/search/?api=1&query=48.85837%2C2.294481"))
+        }
+    }
+
+    // WO-24: a place's own served link can be pasted back without changing its coordinates.
+    @Test
+    fun servedPlaceUrisRoundTripThroughTheLinkParser() {
+        listOf(48.85837 to 2.294481, 0.00001 to -0.00001, -90.0 to 180.0).forEach { (lat, lng) ->
+            val place = TagItem.Place("Place", lat, lng)
+            assertEquals(lat to lng, TagItem.Place.coordinatesFromLink(place.uri))
+        }
+    }
+
+    // WO-24: both known short-link hosts explain why coordinates cannot be read offline.
+    @Test
+    fun shortMapLinksKeepTheirSpecificGuidance() {
+        listOf("https://maps.app.goo.gl/example", "http://maps.app.goo.gl/example?other=value",
+            "https://goo.gl/maps", "https://goo.gl/maps/example").forEach { link ->
+            val error = assertThrows(IllegalArgumentException::class.java) {
+                TagItem.Place.coordinatesFromLink(link)
+            }
+            assertEquals(SHORT_LINK_GUIDANCE, error.message)
+        }
+    }
+
+    // WO-24: the editor's shared formatter stays plain decimal regardless of the phone locale.
+    @Test
+    fun editorCoordinateFormatAvoidsScientificNotationAndLocaleCommas() {
+        val before = Locale.getDefault()
+        try {
+            Locale.setDefault(Locale.GERMANY)
+            assertEquals("0.00001", TagItem.Place.coordinate(0.00001))
+            assertEquals("-0.00001", TagItem.Place.coordinate(-0.00001))
+            assertEquals("3.5", TagItem.Place.coordinate(3.5))
+            assertEquals("0", TagItem.Place.coordinate(-0.0000001))
+        } finally {
+            Locale.setDefault(before)
+        }
+    }
+
+    // WO-24: pasted comma decimals and existing dot decimals produce the same coordinate.
+    @Test
+    fun coordinateInputAcceptsASingleDecimalComma() {
+        assertEquals(3.5, requireNotNull(TagItem.Place.coordinateFromInput("3,5")), 0.0)
+        assertEquals(-3.5, requireNotNull(TagItem.Place.coordinateFromInput(" -3,5 ")), 0.0)
+        assertEquals(3.5, requireNotNull(TagItem.Place.coordinateFromInput("3.5")), 0.0)
+    }
+
+    // WO-24: mixed or repeated separators cannot silently become a different coordinate.
+    @Test
+    fun coordinateInputRejectsAmbiguousDecimalSeparators() {
+        listOf("3,5,1", "3.5,1", "3,5.1", "3,,5", "", "not a number").forEach { input ->
+            assertNull(TagItem.Place.coordinateFromInput(input))
+        }
+    }
+
+    private companion object {
+        // WO-24: pin the complete user-facing short-link message independently of production constants.
+        const val SHORT_LINK_GUIDANCE = "Short links need the internet to open. In Google Maps, open the place, then copy the coordinates or the full link from your browser."
     }
 }

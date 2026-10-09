@@ -29,6 +29,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Place editors accept full Google Maps `query=` links and decimal commas, reuse the
+  plain coordinate format, and explain short links that need internet access.
 - Wi-Fi passwords start masked whenever their editor opens.
 - Personal-network Wi-Fi passphrases require 8–63 printable ASCII characters.
 - Failed built-in tag writes explain the attempted byte length as a likely size issue

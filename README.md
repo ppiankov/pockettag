@@ -242,8 +242,11 @@ uses-permission: name='android.permission.NFC'
   default). They can contain multiple lines. In the iPhone 11 check, no visible response
   appeared despite PocketTag recording completed reads.
 - Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
-  coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
-  not supported. PocketTag does not request your location or provide directions.
+  coordinates or paste a Google Maps `@lat,lng`, `?q=lat,lng`, or `?query=lat,lng` link.
+  Coordinate fields also accept a single decimal comma. Short links such as
+  `maps.app.goo.gl` or `goo.gl/maps` need the internet to open; copy the coordinates or
+  the full link from your browser instead. PocketTag does not resolve short links,
+  request your location, or provide directions.
 - App items use an Android Application Record: the reader opens the installed app or its
   Play Store page. Enter the package name after `id=` in its store URL.
   In the iPhone 11 check, no visible response appeared despite PocketTag recording completed reads.

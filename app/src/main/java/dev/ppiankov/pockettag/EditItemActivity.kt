@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.os.Bundle
 import android.text.InputType
+import android.text.method.DigitsKeyListener
 import android.text.method.HideReturnsTransformationMethod
 import android.text.method.PasswordTransformationMethod
 import android.view.View
@@ -129,8 +130,16 @@ class EditItemActivity : Activity() {
                 addField("name", R.string.field_place_name, item?.name.orEmpty())
                 val numeric = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or
                     InputType.TYPE_NUMBER_FLAG_SIGNED
-                addField("latitude", R.string.field_latitude, item?.latitude?.toString().orEmpty(), numeric)
-                addField("longitude", R.string.field_longitude, item?.longitude?.toString().orEmpty(), numeric)
+                // WO-24: editing reuses the served coordinate format rather than scientific notation.
+                addField("latitude", R.string.field_latitude, item?.latitude?.let(TagItem.Place::coordinate).orEmpty(), numeric)
+                addField("longitude", R.string.field_longitude, item?.longitude?.let(TagItem.Place::coordinate).orEmpty(), numeric)
+                // WO-24: let pasted decimal commas reach validation while retaining the numeric keyboard.
+                for (key in listOf("latitude", "longitude")) {
+                    fields.getValue(key).apply {
+                        keyListener = DigitsKeyListener.getInstance(COORDINATE_CHARACTERS)
+                        setRawInputType(numeric)
+                    }
+                }
                 addField("mapsLink", R.string.field_maps_link, "",
                     InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
             }
@@ -245,8 +254,9 @@ class EditItemActivity : Activity() {
                     val coordinates = if (value("mapsLink").isNotBlank()) {
                         TagItem.Place.coordinatesFromLink(value("mapsLink"))
                     } else {
-                        val latitude = value("latitude").trim().toDoubleOrNull()
-                        val longitude = value("longitude").trim().toDoubleOrNull()
+                        // WO-24: coordinate fields share the single-comma parsing rule.
+                        val latitude = TagItem.Place.coordinateFromInput(value("latitude"))
+                        val longitude = TagItem.Place.coordinateFromInput(value("longitude"))
                         require(latitude != null && longitude != null) { getString(R.string.error_coordinates) }
                         latitude to longitude
                     }
@@ -288,6 +298,7 @@ class EditItemActivity : Activity() {
         private const val MULTILINE_ROWS = 3 // WO-3: show room for SMS bodies and contact notes.
         private const val DRAFT_WIFI_SECURITY = "draft:wifi_security" // WO-7: stable security draft key.
         private const val DRAFT_WIFI_HIDDEN = "draft:wifi_hidden" // WO-7: checkbox draft key.
+        private const val COORDINATE_CHARACTERS = "0123456789+-.," // WO-24: preserve both decimal separators for validation.
     }
 }
 

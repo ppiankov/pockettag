@@ -193,20 +193,32 @@ sealed class TagItem(id: String, label: String) {
             private const val MAX_LONGITUDE = 180.0 // WO-9: geographic longitude bound.
             private const val COORDINATE_DECIMALS = 6 // WO-9: map URLs use at most six fractional digits.
             private const val LINK_ERROR = "Could not read coordinates from this link" // WO-9: one input error.
+            // WO-24: short map links need an actionable explanation without resolving them online.
+            private const val SHORT_LINK_ERROR = "Short links need the internet to open. In Google Maps, open the place, then copy the coordinates or the full link from your browser."
             private val QUERY_COORDINATES = Regex("([+-]?[0-9]+(?:\\.[0-9]+)?),\\s*([+-]?[0-9]+(?:\\.[0-9]+)?)") // WO-9: accept a coordinate pair only.
             private val PATH_COORDINATES = Regex("(?:^|/)@([+-]?[0-9]+(?:\\.[0-9]+)?),([+-]?[0-9]+(?:\\.[0-9]+)?)(?:,|/|$)") // WO-9: Google Maps path form includes optional zoom.
 
             // WO-9: only the two specified Google Maps forms supply coordinates; no redirects are followed.
             fun coordinatesFromLink(link: String): Pair<Double, Double> {
+                // WO-24: preserve short-link guidance before normalizing other parsing failures.
+                val uri = try {
+                    URI(link.trim())
+                } catch (_: URISyntaxException) {
+                    throw IllegalArgumentException(LINK_ERROR)
+                }
+                val host = uri.host?.lowercase(Locale.ROOT)
+                require(uri.scheme == "http" || uri.scheme == "https") { LINK_ERROR }
+                require(host != "maps.app.goo.gl" &&
+                    !(host == "goo.gl" && (uri.path == "/maps" || uri.path.startsWith("/maps/")))) {
+                    SHORT_LINK_ERROR
+                }
                 try {
-                    val uri = URI(link.trim())
-                    val host = uri.host?.lowercase(Locale.ROOT)
-                    require(uri.scheme == "http" || uri.scheme == "https") { LINK_ERROR }
                     require(host in setOf("google.com", "www.google.com", "maps.google.com")) { LINK_ERROR }
                     require(host == "maps.google.com" || uri.path == "/maps" || uri.path.startsWith("/maps/")) {
                         LINK_ERROR
                     }
-                    val query = uri.rawQuery?.split('&')?.firstOrNull { it.substringBefore('=') == "q" }
+                    // WO-24: accept PocketTag's own query parameter alongside older Maps links.
+                    val query = uri.rawQuery?.split('&')?.firstOrNull { it.substringBefore('=') in setOf("q", "query") }
                     val match = if (query != null) {
                         QUERY_COORDINATES.matchEntire(URLDecoder.decode(query.substringAfter('=', ""), "UTF-8").trim())
                     } else PATH_COORDINATES.find(uri.path)
@@ -217,18 +229,25 @@ sealed class TagItem(id: String, label: String) {
                         LINK_ERROR
                     }
                     return latitude to longitude
-                } catch (_: URISyntaxException) {
-                    throw IllegalArgumentException(LINK_ERROR)
                 } catch (_: IllegalArgumentException) {
                     throw IllegalArgumentException(LINK_ERROR)
                 }
             }
 
             // WO-9: strip padding without letting a rounded negative zero become a different map query.
-            private fun coordinate(value: Double): String {
+            // WO-24: the editor and served URI share the same plain decimal representation.
+            internal fun coordinate(value: Double): String {
                 val text = String.format(Locale.ROOT, "%.$COORDINATE_DECIMALS" + "f", value)
                     .trimEnd('0').trimEnd('.')
                 return if (text == "-0") "0" else text
+            }
+
+            // WO-24: a decimal comma is accepted only when its meaning is unambiguous.
+            internal fun coordinateFromInput(value: String): Double? {
+                val text = value.trim()
+                if (',' !in text) return text.toDoubleOrNull()
+                if ('.' in text || text.count { it == ',' } != 1) return null
+                return text.replace(',', '.').toDoubleOrNull()
             }
         }
     }
