@@ -116,9 +116,11 @@ class ShareReceiverTest {
         assertThrows(NdefTooLargeException::class.java) { NdefMessage.ndefFile(message) }
         val resources = DocumentBuilderFactory.newInstance().newDocumentBuilder()
             .parse(File("src/main/res/values/strings.xml"))
-        val strings = resources.getElementsByTagName("string")
-        val template = (0 until strings.length).map { strings.item(it) as Element }
-            .single { it.getAttribute("name") == "error_too_long" }.textContent
+        val plurals = resources.getElementsByTagName("plurals")
+        val items = (0 until plurals.length).map { plurals.item(it) as Element }
+            .single { it.getAttribute("name") == "error_too_long" }.getElementsByTagName("item")
+        val template = (0 until items.length).map { items.item(it) as Element }
+            .single { it.getAttribute("quantity") == "other" }.textContent
         assertEquals("This item is 1025 bytes; the tag holds at most 1024. Not saved.",
             tooLargeItemMessage(template, message))
     }
@@ -155,5 +157,70 @@ class ShareReceiverTest {
         assertEquals("android.nfc.cardemulation.action.HOST_APDU_SERVICE",
             (filters.getValue(".NdefHostApduService").item(0) as Element).getElementsByTagName("action")
                 .item(0).let { (it as Element).getAttributeNS(namespace, "name") })
+    }
+
+    // WO-21: styled URL and note shares retain the same classification and content as plain text.
+    @Test
+    fun charSequenceTextProducesTheEquivalentStringDraft() {
+        listOf(" https://example.com/ ", "First line\nSecond line").forEach { text ->
+            assertEquals(sharedItemDraft(text), sharedItemDraftFromExtras(StringBuilder(text)))
+        }
+    }
+
+    // WO-21: a styled subject changes only the default label, just like a String subject.
+    @Test
+    fun charSequenceSubjectProducesTheEquivalentStringDraft() {
+        val text = "First line\nSecond line"
+        val subject = "  Shared subject 😀  "
+        assertEquals(sharedItemDraft(text, subject),
+            sharedItemDraftFromExtras(StringBuilder(text), StringBuilder(subject)))
+    }
+
+    // WO-21: unsupported extras cannot be stringified, and a missing or blank text extra still fails.
+    @Test
+    fun nonCharSequenceAndEmptyExtrasRemainRejected() {
+        val unsupported: Any = object {
+            override fun toString(): String = error("Unsupported extras must not be stringified")
+        }
+        val error = assertThrows(IllegalArgumentException::class.java) { sharedItemDraft(unsupported) }
+        assertEquals("Share non-empty text or a web link.", error.message)
+        listOf(unsupported as? CharSequence, StringBuilder(), StringBuilder(" \n\t ")).forEach { text ->
+            val missing = assertThrows(IllegalArgumentException::class.java) { sharedItemDraftFromExtras(text) }
+            assertEquals("Share non-empty text or a web link.", missing.message)
+        }
+    }
+
+    // WO-21: casing and parameters may vary, but accepting HTML would widen the sharing contract.
+    @Test
+    fun mimeNormalizationAcceptsOnlyPlainText() {
+        listOf("text/plain", "Text/Plain; charset=UTF-8", " TEXT/PLAIN ").forEach { type ->
+            assertTrue(isSharedTextMimeType(type))
+        }
+        listOf(null, "", "text/html", "text/html; charset=UTF-8", "image/png").forEach { type ->
+            assertFalse(isSharedTextMimeType(type))
+        }
+    }
+
+    // WO-21: the forwarding activity has no visible window while the private editor opens.
+    @Test
+    fun shareReceiverUsesTheNoDisplayTheme() {
+        val document = DocumentBuilderFactory.newInstance().apply { isNamespaceAware = true }
+            .newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
+        val namespace = "http://schemas.android.com/apk/res/android"
+        val activities = document.getElementsByTagName("activity")
+        val receiver = (0 until activities.length).map { activities.item(it) as Element }
+            .single { it.getAttributeNS(namespace, "name") == ".ShareReceiverActivity" }
+        assertEquals("@android:style/Theme.NoDisplay", receiver.getAttributeNS(namespace, "theme"))
+    }
+
+    // WO-21: the user-visible rejection resource keeps the same meaning as the pure validation error.
+    @Test
+    fun sharedTextErrorIsAvailableAsAStringResource() {
+        val document = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+            .parse(File("src/main/res/values/strings.xml"))
+        val strings = document.getElementsByTagName("string")
+        val error = (0 until strings.length).map { strings.item(it) as Element }
+            .single { it.getAttribute("name") == "error_shared_text" }.textContent
+        assertEquals("Share non-empty text or a web link.", error)
     }
 }

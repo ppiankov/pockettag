@@ -31,6 +31,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Shared text accepts styled text and subjects, normalizes plain-text MIME types, and
+  opens the editor without a blank receiver screen.
 - Oversized saves report the whole encoded tag file's byte count in the inline error.
 - Place editors accept full Google Maps `query=` links and decimal commas, reuse the
   plain coordinate format, and explain short links that need internet access.

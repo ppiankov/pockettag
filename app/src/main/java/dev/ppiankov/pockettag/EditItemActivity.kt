@@ -287,7 +287,10 @@ class EditItemActivity : Activity() {
             try {
                 NdefMessage.ndefFile(message)
             } catch (_: NdefTooLargeException) {
-                error.text = tooLargeItemMessage(getString(R.string.error_too_long), message)
+                // WO-21: the plural quantity counts the whole file, just like the displayed size.
+                val template = resources.getQuantityString(R.plurals.error_too_long,
+                    message.size + TAG_LENGTH_PREFIX_BYTES)
+                error.text = tooLargeItemMessage(template, message)
                 error.visibility = View.VISIBLE
                 return
             }

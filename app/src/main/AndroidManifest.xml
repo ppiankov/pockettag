@@ -27,9 +27,11 @@
         </activity>
 
         <!-- WO-21: sharing text reaches a draft receiver while the editor remains private. -->
+        <!-- WO-21: finishing during onCreate avoids showing a blank receiver screen. -->
         <activity
             android:name=".ShareReceiverActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
