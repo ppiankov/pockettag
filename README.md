@@ -130,6 +130,8 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 call) | Samsung Galaxy S25 | **works**: dialer opens with the number |
 | Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
+| Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
+| Huawei P40 (text note) | iPhone 11 | no visible response on a flat, aligned retap; PocketTag's completed-read count increased |
 | Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
@@ -220,7 +222,8 @@ uses-permission: name='android.permission.NFC'
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
 - Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
-  default). They can contain multiple lines; not yet tested on iPhone.
+  default). They can contain multiple lines. In the iPhone 11 check, no visible response
+  appeared despite PocketTag recording completed reads.
 - Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
   coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
   not supported. PocketTag does not request your location or provide directions.
