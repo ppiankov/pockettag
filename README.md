@@ -137,6 +137,8 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (app, installed Calculator) | Samsung Galaxy S25 | **works**: Calculator opens |
 | Huawei P40 (app, Firefox not installed) | Samsung Galaxy S25 | **works**: an app-store chooser appears, then Play Store offers installation |
 | Huawei P40 (app) | iPhone 11 | no visible response; PocketTag's completed-read count increased |
+| Huawei P40 (Wi-Fi) | Samsung Galaxy S25 | **works**: Connect offered and the test network joined after retries; the P40's Access Cards screen also appeared |
+| Huawei P40 (Wi-Fi) | iPhone 11 | no visible response; a completed read was not confirmed |
 | Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
@@ -235,7 +237,8 @@ uses-permission: name='android.permission.NFC'
 - App items use an Android Application Record: the reader opens the installed app or its
   Play Store page. Enter the package name after `id=` in its store URL.
   In the iPhone 11 check, no visible response appeared despite PocketTag recording completed reads.
-- Wi-Fi items are for Android readers that support WSC tags; not yet tested on iPhone.
+- Wi-Fi items are for Android readers that support WSC tags. The iPhone 11 check showed no
+  visible response; a completed read was not confirmed.
   SSIDs are limited to 32 UTF-8 bytes and personal-network passwords to 8–63 printable
   ASCII characters. WPA3 personal is shared as WPA2-PSK for transition-mode networks;
   enterprise networks are not supported. The password is stored in the app's private
