@@ -27,6 +27,10 @@ jobs:
       - name: Assemble debug APK
         run: ./gradlew assembleDebug
 
+      # WO-27: enforce the lint leg of local verification in CI.
+      - name: Lint
+        run: ./gradlew lint
+
       - name: Permissions (no INTERNET)
         run: |
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
