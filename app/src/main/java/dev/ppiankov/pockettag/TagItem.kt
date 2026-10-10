@@ -7,6 +7,11 @@ import java.net.URLDecoder
 import java.util.Locale
 import java.util.UUID
 
+// WO-26: ASCII-only schemes keep case-insensitive validation restricted to HTTP(S).
+internal fun isWebScheme(scheme: String?): Boolean =
+    scheme != null && scheme.all { it in 'a'..'z' || it in 'A'..'Z' } &&
+        (scheme.equals("http", ignoreCase = true) || scheme.equals("https", ignoreCase = true))
+
 // WO-3: saved content owns validation and encoding independently of Android.
 sealed class TagItem(id: String, label: String) {
     val id: String = id // WO-3: stable identity survives editing and selection.
@@ -42,12 +47,16 @@ sealed class TagItem(id: String, label: String) {
     class Link(label: String, url: String, id: String = UUID.randomUUID().toString()) :
         TagItem(id, label) {
         override val type = Type.LINK
-        val url: String = url.trim() // WO-3: remove pasted surrounding whitespace before validation.
+        val url: String // WO-26: readers receive a canonical scheme with all other URL text preserved.
         override val uri: String get() = url // WO-3: preserve the exact generated URI for migration.
         init {
-            require(this.url.startsWith("https://") || this.url.startsWith("http://")) {
+            // WO-26: validate the web prefix before normalizing only its scheme.
+            val trimmed = url.trim()
+            val scheme = trimmed.substringBefore("://", "")
+            require(isWebScheme(scheme)) {
                 "Web link must start with http:// or https://."
             }
+            this.url = scheme.lowercase(Locale.ROOT) + trimmed.substring(scheme.length)
         }
         override fun ndefMessage(): ByteArray = NdefMessage.uriRecord(uri)
     }
@@ -207,7 +216,8 @@ sealed class TagItem(id: String, label: String) {
                     throw IllegalArgumentException(LINK_ERROR)
                 }
                 val host = uri.host?.lowercase(Locale.ROOT)
-                require(uri.scheme == "http" || uri.scheme == "https") { LINK_ERROR }
+                // WO-26: Maps links use the same scheme rule as shared and manually entered links.
+                require(isWebScheme(uri.scheme)) { LINK_ERROR }
                 require(host != "maps.app.goo.gl" &&
                     !(host == "goo.gl" && (uri.path == "/maps" || uri.path.startsWith("/maps/")))) {
                     SHORT_LINK_ERROR

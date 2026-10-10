@@ -12,6 +12,17 @@ import org.junit.Test
 
 // WO-9: fixed coordinates exercise the chosen URL encoding without location access.
 class PlaceItemTest {
+    // WO-26: every supported Maps coordinate form accepts uppercase or mixed-case web schemes.
+    @Test
+    fun uppercaseAndMixedCaseSchemesKeepMapsCoordinates() {
+        listOf("HTTPS://www.google.com/maps?q=48.85837,2.294481",
+            "Http://maps.google.com/?query=48.85837%2C2.294481",
+            "HTTPS://www.google.com/maps/place/Example/@48.85837,2.294481,17z")
+            .forEach { link ->
+                assertEquals(48.85837 to 2.294481, TagItem.Place.coordinatesFromLink(link))
+            }
+    }
+
     @Test
     fun landmarkHasExactGoogleMapsUriRecord() {
         val place = TagItem.Place("Meeting point", 48.85837, 2.294481, "Example landmark")

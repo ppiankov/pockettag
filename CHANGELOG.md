@@ -51,6 +51,11 @@ All notable changes to this project are documented here. The format follows
 - Recorded built-in tag and Booth device results, including Sony contact-card failure
   and Samsung web-link reads from Booth and the main screen.
 
+### Fixed
+
+- Web and place links accept uppercase or mixed-case HTTP(S) schemes; web links save
+  only the scheme in lowercase, preserving the rest of the URL.
+
 ## [0.2.0] - 2026-10-03
 
 ### Added

@@ -25,7 +25,8 @@ internal fun sharedItemDraft(text: Any?, subject: Any? = null): SharedItemDraft 
     val trimmed = text.trim()
     val type = try {
         val uri = URI(trimmed)
-        if (uri.scheme in setOf("http", "https") && uri.host != null) TagItem.Type.LINK else TagItem.Type.NOTE
+        // WO-26: scheme casing does not turn a complete web URL into a text note.
+        if (isWebScheme(uri.scheme) && uri.host != null) TagItem.Type.LINK else TagItem.Type.NOTE
     } catch (_: URISyntaxException) {
         TagItem.Type.NOTE
     }

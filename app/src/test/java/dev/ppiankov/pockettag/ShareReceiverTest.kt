@@ -2,6 +2,8 @@ package dev.ppiankov.pockettag
 
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
+import org.json.JSONArray
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
@@ -11,6 +13,82 @@ import org.w3c.dom.Element
 
 // WO-21: shared drafts and the exported entry point are checked without Android UI or storage writes.
 class ShareReceiverTest {
+    // WO-26: web shares retain their entered text until the link is saved.
+    @Test
+    fun uppercaseAndMixedCaseWebSharesKeepEnteredContent() {
+        listOf("HTTPS://example.com/", "Http://example.com/", "HTTPS://Example.com/Path?Q=1").forEach { text ->
+            val draft = sharedItemDraft(text)
+            assertEquals(TagItem.Type.LINK, draft.type)
+            assertEquals(text, draft.content)
+            assertEquals(text, draft.label)
+        }
+    }
+
+    // WO-26: canonical schemes preserve host, path, query, and fragment casing and use URI compression.
+    @Test
+    fun uppercaseLinksNormalizeOnlyTheSchemeAndUseTheHttpsPrefix() {
+        listOf("HTTPS://example.com/A" to "https://example.com/A",
+            " HTTPS://Example.com/Path?Q=1#Part " to "https://Example.com/Path?Q=1#Part")
+            .forEach { (entered, expected) ->
+                val link = TagItem.Link("x", entered)
+                assertEquals(expected, link.url)
+                assertEquals(expected, link.uri)
+                assertEquals(0x04.toByte(), NdefMessage.uriPayload(link.uri).first())
+                assertArrayEquals(TagItem.Link("x", expected).ndefMessage(), link.ndefMessage())
+            }
+    }
+
+    // WO-26: a mixed-case HTTP scheme uses the standard HTTP prefix without lowercasing the remainder.
+    @Test
+    fun mixedCaseHttpLinksUseTheHttpPrefix() {
+        val link = TagItem.Link("x", "Http://Example.com/A?Q=1")
+        assertEquals("http://Example.com/A?Q=1", link.url)
+        assertEquals(0x03.toByte(), NdefMessage.uriPayload(link.uri).first())
+        assertArrayEquals(TagItem.Link("x", "http://Example.com/A?Q=1").ndefMessage(), link.ndefMessage())
+    }
+
+    // WO-26: the JSON document persists the canonical scheme and preserves the rest across reloads.
+    @Test
+    fun uppercaseEnteredLinkJsonRoundTripKeepsTheCanonicalScheme() {
+        val expected = "https://Example.com/Path?Q=1#Part"
+        val link = TagItem.Link("Web", "HTTPS://Example.com/Path?Q=1#Part", "web-id")
+        val json = ItemJson.encode(listOf(link))
+        assertEquals(expected, JSONArray(json).getJSONObject(0).getString("url"))
+        val restored = ItemJson.decode(json).items.single() as TagItem.Link
+        assertEquals(expected, restored.url)
+        assertEquals(link.id, restored.id)
+        assertEquals(link.label, restored.label)
+        assertArrayEquals(link.ndefMessage(), restored.ndefMessage())
+        assertEquals(json, ItemJson.encode(listOf(restored)))
+    }
+
+    // WO-26: accepting web scheme casing does not widen the allowed schemes or prefix syntax.
+    @Test
+    fun nonWebSchemesRemainNotesAndCannotBecomeLinks() {
+        listOf("ftp://example.com/file", "FTP://example.com/file", "mailto:a@example.com",
+            "MAILTO:a@example.com", "geo:1,2", "GEO:1,2", "http:example.com", "https:/example.com", "http\u017F://example.com")
+            .forEach { text ->
+                val draft = sharedItemDraft(text)
+                assertEquals(TagItem.Type.NOTE, draft.type)
+                assertEquals(text, draft.content)
+                val error = assertThrows(IllegalArgumentException::class.java) { TagItem.Link("x", text) }
+                assertEquals("Web link must start with http:// or https://.", error.message)
+            }
+    }
+
+    // WO-26: legacy uppercase schemes remain Saved links with their original type and served bytes.
+    @Test
+    fun legacyUppercaseWebSchemesStayRawWithExactBytes() {
+        listOf("HTTP://example.com", "HTTPS://Example.com/A?Q=1", "Http://example.com/").forEach { legacy ->
+            val state = ItemState.load(null, null, legacy)
+            val item = requireNotNull(state.activeItem)
+            assertEquals(TagItem.Type.RAW, item.type)
+            assertEquals("Saved link", item.label)
+            assertEquals(legacy, item.uri)
+            assertArrayEquals(NdefMessage.ndefFile(legacy), state.ndefFile(true))
+        }
+    }
+
     @Test
     fun bareHttpsUrlBecomesAWebLink() {
         val draft = sharedItemDraft("https://example.com/")
