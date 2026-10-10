@@ -249,6 +249,7 @@ uses-permission: name='android.permission.NFC'
   of NDEF message, including record headers. Large contact cards or messages may not fit.
 - Share to PocketTag accepts text and links only; photos, files, and voice notes cannot
   travel over a tap.
+- An uppercase scheme (`HTTPS://`) is accepted and saved in lowercase.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
 - Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
