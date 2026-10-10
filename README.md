@@ -145,6 +145,7 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (text note) | iPhone 11 | no visible response on a flat, aligned retap; PocketTag's completed-read count increased |
 | Huawei P40 (place) | Samsung Galaxy S25 | **works**: a map opens at the chosen landmark after a retap; the P40's Access Cards screen appeared on one attempt |
 | Huawei P40 (place) | iPhone 11 | **works**: Google Maps opens |
+| Huawei P40 (Place editor) | — | **works**: short links show the coordinate/full-link guidance; a full Google Maps link saves coordinates that reopen in decimal form, including a small latitude without scientific notation |
 | Huawei P40 (app, installed Calculator) | Samsung Galaxy S25 | **works**: Calculator opens |
 | Huawei P40 (app, Firefox not installed) | Samsung Galaxy S25 | **works**: an app-store chooser appears, then Play Store offers installation |
 | Huawei P40 (app) | iPhone 11 | no visible response; PocketTag's completed-read count increased |
