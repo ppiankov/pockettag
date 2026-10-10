@@ -142,6 +142,10 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
 | Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
+| Huawei P40 (Huawei Browser shared text) | Samsung Galaxy S25 | **works**: after Save, the tag viewer shows the shared text; a chooser was observed on an earlier attempt |
+| Huawei P40 (Opera shared web link) | Samsung Galaxy S25 | **works**: after Save, the Web link is selected and the reader opens the website on one tap |
+| Huawei P40 (share editor, Cancel) | — | **works**: Back without Save creates no item and keeps the previous selection |
+| Huawei P40 (Opera / Edge share drafts) | — | **works**: selected text and page shares containing additional text open Text note drafts |
 | Huawei P40 (text note) | iPhone 11 | no visible response on a flat, aligned retap; PocketTag's completed-read count increased |
 | Huawei P40 (place) | Samsung Galaxy S25 | **works**: a map opens at the chosen landmark after a retap; the P40's Access Cards screen appeared on one attempt |
 | Huawei P40 (place) | iPhone 11 | **works**: Google Maps opens |
@@ -155,6 +159,7 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (chip mode, web link) | Samsung Galaxy S25 | **works**: website opens unlocked, locked, in Booth, and at the Sony boot logo |
+| Sony Xperia XQ-BC72 (chip mode, Chrome shared text) | — | **works**: a short Text note is `WRITTEN`, 184 bytes, with verified read-back; no reader tap was performed |
 | Sony Xperia XQ-BC72 (chip mode, 431-byte contact card) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser (earlier reads reported "unknown tag type") |
 | Sony Xperia XQ-BC72 (chip mode, 99-byte contact card) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; contact import offered on one tap |
 | Sony Xperia XQ-BC72 (chip mode, 340-byte long web link) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; reader tried to open the URL on one tap |
