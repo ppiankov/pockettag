@@ -9,6 +9,8 @@ class PocketTagApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         ChipSync.reconcile(this)
+        // WO-22: process restoration updates presentation without requesting notification permission.
+        SosController.refresh(this)
     }
 }
 
@@ -16,10 +18,11 @@ class PocketTagApplication : Application() {
 internal val EMPTY: ByteArray get() = byteArrayOf(0xD8.toByte(), 0, 0, 0)
 
 // WO-2: use the selected raw message only when both switches and the existing file-size gate permit it.
-internal fun chipGoal(state: ItemState, serving: Boolean, chipMode: Boolean): ByteArray {
-    if (!serving || !chipMode || !state.readable) return EMPTY
+// WO-22: SOS overrides only selection and Serve tag; opt-in, size and verified-write rules remain.
+internal fun chipGoal(state: ItemState, serving: Boolean, chipMode: Boolean, sos: SosState = SosState()): ByteArray {
+    if (!chipMode) return EMPTY
     return try {
-        state.activeItem?.ndefMessage()?.also { NdefMessage.ndefFile(it) } ?: EMPTY
+        servedItem(state, serving, sos)?.ndefMessage()?.also { NdefMessage.ndefFile(it) } ?: EMPTY
     } catch (_: Exception) {
         EMPTY
     }
@@ -284,12 +287,15 @@ internal object ChipSync {
     // WO-2: recovery repeats the current transaction without rewriting any saved item or switch.
     fun retry(context: Context) = submit(context, reconcile = false)
 
+    // WO-22: SOS uses the same queue without widening the three existing content/switch triggers.
+    fun sosChanged(context: Context) = submit(context, reconcile = false)
+
     // WO-2: recompute from freshly persisted items and flags before accepting an asynchronous goal.
     private fun submit(context: Context, reconcile: Boolean) {
         val app = context.applicationContext
         val queue = worker(app) ?: return
         val goal = try {
-            chipGoal(ItemStore(app).load(), TagPrefs.enabled(app), TagPrefs.chipMode(app))
+            chipGoal(ItemStore(app).load(), TagPrefs.enabled(app), TagPrefs.chipMode(app), SosPrefs(app).load())
         } catch (_: Exception) {
             EMPTY
         }
@@ -318,8 +324,9 @@ internal object ChipSync {
 
     // WO-2: status follows the current goal, never a success from a previous selected item.
     fun display(context: Context, state: ItemState): ChipDisplay = try {
-        val serving = TagPrefs.enabled(context)
-        chipDisplay(chipGoal(state, serving, TagPrefs.chipMode(context)), serving,
+        val enabled = TagPrefs.enabled(context)
+        val sos = SosPrefs(context).load() // WO-22: one SOS snapshot governs the current goal and Off wording.
+        chipDisplay(chipGoal(state, enabled, TagPrefs.chipMode(context), sos), enabled || sos.enabled,
             TagPrefs.lastVerifiedChip(context))
     } catch (_: Exception) {
         ChipDisplay.UNKNOWN

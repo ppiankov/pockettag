@@ -90,9 +90,33 @@ Emergency-card reader results have not yet been tested.
 The editor keeps this privacy notice visible: **Anyone who taps your phone can read this.
 Do not include anything you would not write on a luggage tag.** The details are entered
 manually and are public to anyone who taps, including while locked in chip mode. HCE
-serving needs the phone unlocked; use generic chip mode on supported phones for locked
-serving. An emergency card alerts no one by itself and is not a replacement for Android's
+locked-screen behaviour varies by phone: the P40 answered with its lock screen lit, while
+the S25 requires unlocking. An emergency card alerts no one by itself and is not a replacement for Android's
 Emergency SOS or calling emergency services.
+
+**SOS:** open **SOS setup** and choose an existing emergency card and **Open** or **Covert**
+mode. If there is no emergency card, setup creates one with an editable default:
+“Please help me quietly. Call &lt;name&gt;: &lt;phone&gt; or local emergency services.
+Please do not draw attention.” Switch **SOS** on, or add and tap its Quick Settings tile.
+SOS serves that card instead of the normal selection, including when **Serve tag** is off;
+the status says so. Turning SOS off leaves the normal selection and Serve tag setting
+unchanged. Deleting its emergency card turns SOS off and explains why. An unreadable or
+missing SOS card serves nothing, without falling back to the normal item.
+
+Open is the default: its tile says **SOS** and an ongoing **SOS tag on** notification has
+an **Off** action. Android 13 and newer ask for notification permission on the first Open
+activation. If denied, SOS still serves and the main screen says the notification is
+unavailable. Covert posts no notification, toast, sound or vibration, and its tile uses
+the normal app icon and **PocketTag** label. Changing mode applies immediately; both modes
+send exactly the same card to the reader.
+
+Covert does not hide the app, its item list or the SOS setting from anyone who opens
+PocketTag. Only a phone held against this one receives the message; it alerts no one by
+itself and is not a replacement for Android's Emergency SOS or calling emergency services.
+On the **P40**, the screen must be on for locked HCE serving. On the **Galaxy S25**, Samsung
+shows an **Embedded tag / PocketTag NDEF tag** chooser and requires unlocking, so **SOS
+while locked is unavailable**. Chip-mode SOS still requires verified publication on a
+supported phone. SOS reader and chip-mode checks are not yet tested.
 
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
@@ -105,8 +129,8 @@ reads or show **Sent at &lt;time&gt;** for them.
 
 The service is registered without requiring an unlocked device; whether a given phone
 answers taps while locked or with the screen off is up to its NFC stack and is recorded as
-observed below, not promised. On the Huawei P40 the phone must be unlocked; PocketTag does
-not need to be the app on screen.
+observed below, not promised. The Huawei P40 answered while locked with its screen on;
+it did not answer with its screen off. PocketTag does not need to be the app on screen.
 
 ## Chip mode
 
@@ -116,11 +140,13 @@ item into the NFC controller's built-in Type 4 tag. The controller answers witho
 app; locked and powered-off behaviour depends on the phone. Observed results are recorded
 in the table below. Other phones keep using HCE and show no chip-mode switch.
 
-Switching **Serve tag** off is the global stop control, even when chip mode is off. The
+With **SOS off**, switching **Serve tag** off is the global stop control, even when chip mode is off. The
 app writes an empty NDEF record and reports **Off. The built-in tag is verified empty.**
 only after an exact read-back. An unknown result keeps a warning and **Retry** visible;
 turn NFC off if the phone may still be serving the previous item. Opening the app also
 reconciles the chip with the current switches and selection, clearing stale content.
+While SOS is on, it overrides Serve tag off and publishes the emergency card through the
+same verified-write path. Turn SOS off as well to stop serving.
 
 If an item does not fit the controller, the app attempts to empty it and reports whether
 that was verified. There is no assumed controller capacity. The existing 1024-byte tag
@@ -168,7 +194,7 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (app) | iPhone 11 | no visible response; PocketTag's completed-read count increased |
 | Huawei P40 (Wi-Fi) | Samsung Galaxy S25 | **works**: Connect offered and the test network joined after retries; the P40's Access Cards screen also appeared |
 | Huawei P40 (Wi-Fi) | iPhone 11 | no visible response; a completed read was not confirmed |
-| Huawei P40, screen locked | Samsung Galaxy S25 | no response: unlock the P40 first |
+| Huawei P40, earlier locked-screen tap (screen state not recorded) | Samsung Galaxy S25 | no response on that attempt; see the controlled screen-state observations below |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (chip mode, web link) | Samsung Galaxy S25 | **works**: website opens unlocked, locked, in Booth, and at the Sony boot logo |
@@ -192,6 +218,21 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
 | Huawei P40 (v0.2) | iPhone 16, iOS 26.6.1 (background tag reading) | **works** for web link, WhatsApp, call, email, SMS; contact card: no response |
 
+Locked-screen probe with a dummy web link, before the SOS changes:
+
+| Tag | Screen condition | Reader outcome | Tag-side observation |
+|---|---|---|---|
+| Huawei P40 | On, unlocked | S25 opened the website immediately | Both phones were unlocked before and after |
+| Huawei P40 | On, locked | S25 opened the website immediately | Operator confirmed the lit lock screen at contact |
+| Huawei P40 | Off, locked | S25 had no response | Reader stayed unlocked |
+| Galaxy S25 | On, unlocked | P40 opened the website | P40 serving was off for this controlled reader check |
+| Galaxy S25 | Intended on, locked | P40 had no response | Samsung chooser; S25 was unlocked afterward, so lock state at contact was unconfirmed |
+| Galaxy S25 | Off, locked | P40 had no response | Samsung chooser; reader stayed unlocked |
+
+A separate S25 screen-off trial also showed the chooser, then an unlock keypad. No
+locked SOS success was observed there. This app keeps the original NFC service attributes;
+the trial is not shipped. These observations are separate conditions, not a routing-failure rate.
+
 The Sony failure is below the app. Its NFC controller has a built-in Type 4 tag (an NXP
 "T4T NFCEE"), switched on in the vendor configuration (`NXP_T4T_NFCEE_ENABLE=0x01` in
 `/vendor/etc/libnfc-nxp.conf`). Android's NFC stack routes the NDEF AID `D2760000850101` to that
@@ -203,7 +244,7 @@ installed, and why no command ever reaches the app, locked or unlocked. Changing
 needs a modified vendor partition (root), so no host card emulation app can serve a tag on this
 phone. What does work, from a regular app, is writing the message into that built-in tag through
 NXP's vendor library; an S25 then opens the written URL. PocketTag now offers this as
-opt-in chip mode, with verified read-back and Serve tag as the global stop control.
+opt-in chip mode, with verified read-back and Serve tag as the global stop control when SOS is off.
 
 With **Show last tap details** switched on, a successful tap's trace shows the reader
 selecting the NDEF application, reading the Capability Container, selecting the NDEF file,
@@ -256,7 +297,7 @@ uses-permission: name='android.permission.NFC'
   `ON_UNLOCKED` screen state completed with PocketTag on screen (7/9) and in the background
   (10/13). Misses often coincided with Wallet's tap screen. Watch the tap count or **Sent**
   and tap again if a completed read is not confirmed. **Booth mode** keeps the screen awake
-  while visible, avoiding the separate locked-screen failure. See the
+  while visible, avoiding the separate screen-off failure. See the
   [Huawei tap findings](docs/devices/huawei-p40.md).
 - Tap counts measure completed NFC reads, not distinct people, and are stored only on the phone.
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
@@ -298,7 +339,8 @@ uses-permission: name='android.permission.NFC'
   348 bytes of NDEF content and were rejected at 349; see Chip mode above.
 - On the Galaxy S25 the first tap shows a chooser between Samsung's "Embedded Tag" and
   PocketTag unless PocketTag is on screen (main screen or Booth mode), where one tap was
-  observed.
+  observed. When locked, Samsung asks for unlocking; SOS while locked is unavailable on
+  that phone. On the P40, locked HCE worked with the screen on but not with it off.
 - WhatsApp shows its own safety warning when the chat number is not in the reader's
   contacts. That is WhatsApp's behaviour, not PocketTag's.
 

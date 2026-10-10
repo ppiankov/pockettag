@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- SOS override with Open and Covert modes, a Quick Settings tile, an optional Open
+  notification and Off action, and shared HCE, chip-mode and Booth serving identity.
 - Saved emergency cards with a help-text record followed by a contact telephone record,
   optional message and notes, and a persistent editor privacy warning.
 - Share-menu support for text and web links, with an editable draft and selection only

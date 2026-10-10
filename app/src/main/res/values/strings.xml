@@ -70,6 +70,28 @@
     <string name="field_emergency_contact">Contact name</string>
     <string name="field_emergency_notes">Notes (optional)</string>
     <string name="iffound_privacy">Anyone who taps your phone can read this. Do not include anything you would not write on a luggage tag.</string>
+    <!-- WO-22: presentation modes change this phone's visibility, never the helper's message. -->
+    <string name="sos_switch">SOS</string>
+    <string name="sos_tile_label">SOS</string>
+    <string name="sos_on">SOS on</string>
+    <string name="sos_off">Off</string>
+    <string name="sos_open">Open</string>
+    <string name="sos_covert">Covert</string>
+    <string name="sos_mode_title">SOS mode</string>
+    <string name="sos_mode_label">SOS mode: %1$s</string>
+    <string name="sos_setup">SOS setup</string>
+    <string name="sos_setup_limits">Open shows a notification and an SOS tile. Covert shows no notification and labels the tile PocketTag. Both send the same message. Covert does not hide the app, its item list or the SOS setting from anyone who opens PocketTag. Only a phone held against this one receives the message. It alerts no one by itself and is not a replacement for Android\'s Emergency SOS or calling emergency services.</string>
+    <string name="sos_setup_error">Enter a contact name and a phone number with 7 to 15 digits. The whole tag must fit within 1024 bytes. Nothing was saved.</string>
+    <string name="sos_overrides_off">SOS overrides Serve tag off. Turn SOS off to restore the normal serving setting.</string>
+    <string name="sos_item_deleted">SOS turned off because its emergency card was deleted.</string>
+    <string name="sos_item_unavailable">The SOS emergency card cannot be read. Readers see no tag.</string>
+    <string name="sos_notification_title">SOS tag on</string>
+    <string name="sos_notification_channel">Open SOS</string>
+    <string name="sos_notification_unavailable">The SOS notification is unavailable. SOS still serves.</string>
+    <!-- WO-22: report the measured lock behaviour without treating the S25 chooser as working locked SOS. -->
+    <string name="sos_lock_p40">Huawei P40: answers while locked with the screen on; no response with the screen off.</string>
+    <string name="sos_lock_s25">Galaxy S25: Samsung shows a chooser between Embedded tag and PocketTag NDEF tag and requires unlocking. SOS while locked is unavailable.</string>
+    <string name="sos_lock_unverified">Locked-screen serving has not been tested on this phone. Keep it unlocked.</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>
@@ -104,7 +126,8 @@
     <!-- WO-2: chip controls distinguish verified content from an unknown controller outcome. -->
     <string name="chip_mode">Use the phone\'s built-in tag (answers even when locked)</string>
     <string name="chip_confirm_title">Use the built-in tag?</string>
-    <string name="chip_confirm_message">The phone\'s NFC chip answers without the app, including when the phone is locked. It may also answer when switched off. Switching this mode off empties the built-in tag. To stop it at any time, switch Serve tag off. Uninstalling does not stop it. Switch Serve tag off and verify the tag is empty before uninstalling.</string>
+    <!-- WO-22: SOS is the explicit exception to the normal global stop. -->
+    <string name="chip_confirm_message">The phone\'s NFC chip answers without the app, including when the phone is locked. It may also answer when switched off. Switching this mode off empties the built-in tag. To stop it at any time, switch Serve tag off. Uninstalling does not stop it. Switch Serve tag off and verify the tag is empty before uninstalling. SOS overrides Serve tag off while on; turn SOS off as well to stop serving.</string>
     <string name="chip_confirm">Confirm</string>
     <string name="chip_serving">Built-in tag serves %1$s, even when the phone is locked.</string>
     <string name="chip_empty">Built-in tag is empty.</string>

@@ -78,6 +78,26 @@
         android:text="@string/chip_retry"
         android:visibility="gone" />
 
+    <!-- WO-22: add SOS controls without removing or reordering the existing controls. -->
+    <Switch
+        android:id="@+id/sos_enabled"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/sos_switch" />
+
+    <Button
+        android:id="@+id/sos_mode"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/sos_mode_title" />
+
+    <Button
+        android:id="@+id/sos_setup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/sos_setup" />
+
     <Switch
         android:id="@+id/diagnostics"
         android:layout_width="match_parent"

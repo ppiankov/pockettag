@@ -1,5 +1,6 @@
 package dev.ppiankov.pockettag
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
@@ -10,12 +11,17 @@ import android.content.pm.PackageManager
 import android.nfc.NfcAdapter
 import android.nfc.cardemulation.CardEmulation
 import android.os.Bundle
+import android.os.Build
+import android.text.InputType
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.ArrayAdapter
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.Switch
+import android.widget.Spinner
 import android.widget.TextView
 
 // WO-3: select a saved item while retaining serving, routing, and tap diagnostics.
@@ -29,6 +35,9 @@ class MainActivity : Activity() {
     private lateinit var chipSwitch: Switch // WO-2: optional chip publication is separate from global serving.
     private lateinit var chipRetry: Button // WO-2: unknown controller outcomes retain a recovery action.
     private var renderingChipSwitch = false // WO-2: reflecting saved state must not publish or confirm it again.
+    private lateinit var sosSwitch: Switch // WO-22: emergency override leaves the normal selection intact.
+    private lateinit var sosMode: Button // WO-22: presentation mode can change while SOS is on.
+    private var renderingSos = false // WO-22: preference rendering must not trigger another activation.
     private lateinit var status: TextView
     private lateinit var trace: TextView
 
@@ -40,6 +49,7 @@ class MainActivity : Activity() {
             if (key == ItemStore.ITEMS_KEY || key == ItemStore.ACTIVE_ID_KEY ||
                 key == ItemStore.TAP_COUNTS_KEY) {
                 refreshItems()
+                refreshSos()
                 refreshStatus(null)
             }
             // WO-2: verification and switch changes refresh the chip status without rewriting saved content.
@@ -52,6 +62,11 @@ class MainActivity : Activity() {
             }
             // WO-25: apply this preference without changing serving or chip publication.
             if (key == TagPrefs.KEY_KEEP_SCREEN_AWAKE) refreshKeepScreenAwake()
+            // WO-22: tile, notification and item deletion changes update the same in-app controls.
+            if (key in SosPrefs.KEYS) {
+                refreshSos()
+                refreshStatus(null)
+            }
             refreshTrace()
         } }
 
@@ -69,6 +84,8 @@ class MainActivity : Activity() {
         chipRetry = findViewById(R.id.chip_retry)
         status = findViewById(R.id.status)
         trace = findViewById(R.id.trace)
+        sosSwitch = findViewById(R.id.sos_enabled)
+        sosMode = findViewById(R.id.sos_mode)
 
         enabledSwitch.isChecked = TagPrefs.enabled(this)
 
@@ -109,6 +126,31 @@ class MainActivity : Activity() {
         }
         chipRetry.setOnClickListener { ChipSync.retry(this) }
         refreshChipSwitch()
+        // WO-22: a missing emergency target opens setup; it never falls back to the normal item.
+        sosSwitch.setOnCheckedChangeListener { _, checked ->
+            if (!renderingSos) {
+                if (!SosController.setEnabled(this, checked)) {
+                    refreshSos()
+                    showSosSetup(activate = true)
+                } else {
+                    requestSosNotificationPermission()
+                    refreshSos()
+                    refreshStatus(null)
+                }
+            }
+        }
+        sosMode.setOnClickListener {
+            val current = SosPrefs(this).load()
+            AlertDialog.Builder(this).setTitle(R.string.sos_mode_title)
+                .setSingleChoiceItems(arrayOf(getString(R.string.sos_open), getString(R.string.sos_covert)),
+                    current.mode.ordinal) { dialog, index ->
+                    SosController.setMode(this, SosMode.entries[index])
+                    requestSosNotificationPermission()
+                    dialog.dismiss()
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        }
+        findViewById<Button>(R.id.sos_setup).setOnClickListener { showSosSetup() }
+        refreshSos()
 
         val diagnostics = findViewById<Switch>(R.id.diagnostics)
         diagnostics.isChecked = TagPrefs.showTrace(this)
@@ -133,8 +175,110 @@ class MainActivity : Activity() {
         refreshItems()
         // WO-2: returning from another screen reflects the persisted opt-in without a new write.
         refreshChipSwitch()
+        refreshSos()
+        // WO-22: a protected tile activation may have queued the first Open permission request.
+        requestSosNotificationPermission()
         refreshStatus(null)
         refreshTrace()
+    }
+
+    // WO-22: these controls reflect persisted SOS state without changing normal item selection.
+    private fun refreshSos() {
+        val state = SosPrefs(this).load()
+        renderingSos = true
+        sosSwitch.isChecked = state.enabled
+        renderingSos = false
+        sosMode.text = getString(R.string.sos_mode_label,
+            getString(if (state.mode == SosMode.OPEN) R.string.sos_open else R.string.sos_covert))
+        findViewById<Button>(R.id.sos_setup).isEnabled = store.load().readable
+    }
+
+    // WO-22: permission is an optional visibility choice, requested once after an Open activation.
+    private fun requestSosNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val prefs = SosPrefs(this)
+        if (!sosPermissionRequest(prefs.load(), runtimePermission = true) || !prefs.markPermissionAsked()) return
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), SosController.PERMISSION_REQUEST)
+        } else SosController.refresh(this)
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == SosController.PERMISSION_REQUEST) {
+            SosController.refresh(this)
+            refreshStatus(null)
+        }
+    }
+
+    // WO-22: setup stays inside the existing activity and uses only explicitly saved dummy or owner fields.
+    private fun showSosSetup(activate: Boolean = false) {
+        val state = store.load()
+        if (!state.readable) return
+        val current = SosPrefs(this).load()
+        val emergencyItems = state.items.filterIsInstance<TagItem.IfFound>()
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        content.addView(TextView(this).apply { setText(R.string.sos_setup_limits) })
+        content.addView(TextView(this).apply { setText(R.string.iffound_privacy) })
+        val picker = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                emergencyItems.map { it.label })
+            setSelection(emergencyItems.indexOfFirst { it.id == current.itemId }.coerceAtLeast(0))
+        }
+        if (emergencyItems.isNotEmpty()) content.addView(picker)
+        val mode = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf(getString(R.string.sos_open), getString(R.string.sos_covert)))
+            setSelection(current.mode.ordinal)
+        }
+        content.addView(mode)
+        val name = EditText(this).apply { setHint(R.string.field_emergency_contact) }
+        val phone = EditText(this).apply {
+            setHint(R.string.field_number)
+            inputType = InputType.TYPE_CLASS_PHONE
+        }
+        val template = defaultSosMessage("<name>", "<phone>")
+        val message = EditText(this).apply {
+            setHint(R.string.field_body)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            setText(template)
+        }
+        if (emergencyItems.isEmpty()) {
+            content.addView(name)
+            content.addView(phone)
+            content.addView(message)
+        }
+        val error = TextView(this)
+        content.addView(error)
+        val dialog = AlertDialog.Builder(this).setTitle(R.string.sos_setup)
+            .setView(content).setPositiveButton(R.string.save, null)
+            .setNegativeButton(android.R.string.cancel, null).create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                try {
+                    val item = if (emergencyItems.isNotEmpty()) emergencyItems[picker.selectedItemPosition] else {
+                        require(name.text.isNotBlank())
+                        val contact = TagItem.IfFound(getString(R.string.sos_tile_label), "",
+                            name.text.toString(), phone.text.toString())
+                        TagItem.IfFound(contact.label,
+                            if (message.text.toString() == template) defaultSosMessage(contact.contactName, contact.contactPhone)
+                            else message.text.toString(), contact.contactName, contact.contactPhone, id = contact.id)
+                    }
+                    if (!store.configureSos(item, SosMode.entries[mode.selectedItemPosition],
+                            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)) return@setOnClickListener
+                    if (activate) SosController.setEnabled(this, true)
+                    requestSosNotificationPermission()
+                    refreshItems()
+                    refreshSos()
+                    refreshStatus(null)
+                    dialog.dismiss()
+                } catch (_: IllegalArgumentException) {
+                    // WO-22: invalid contact or oversized content remains an unsaved editable draft.
+                    error.setText(R.string.sos_setup_error)
+                }
+            }
+        }
+        dialog.show()
     }
 
     // WO-2: programmatic rendering never invokes the opt-in or opt-out persistence trigger.
@@ -214,17 +358,20 @@ class MainActivity : Activity() {
         // WO-3: unreadable storage disables creation and takes precedence over empty-selection status.
         val savedItems = store.load()
         findViewById<Button>(R.id.add_item).isEnabled = savedItems.readable
-        val selected = savedItems.activeItem
+        val sos = SosPrefs(this).load() // WO-22: display identity follows SOS while normal selection stays saved.
+        // WO-22: preview the normal item when paused, preserving the existing paused-screen label.
+        val selected = servedItem(savedItems, enabled = true, sos = sos)
         // WO-2: global off has priority and requires fresh, exact EMPTY verification on capable phones.
         val chipAvailable = ChipSync.available(this)
-        val serving = TagPrefs.enabled(this)
+        val enabled = TagPrefs.enabled(this)
+        val serving = enabled || sos.enabled // WO-22: SOS explicitly overrides Serve tag off.
         val chipMode = chipAvailable && TagPrefs.chipMode(this)
         val chipDisplay = if (chipAvailable) ChipSync.display(this, savedItems) else null
         val chipMessage = chipDisplay?.let { ChipSync.message(this, it, selected?.label.orEmpty()) }
         val state = when {
             chipAvailable && !serving -> chipMessage
             !savedItems.readable -> getString(R.string.status_unreadable)
-            selected == null -> getString(R.string.status_no_item)
+            selected == null -> getString(if (sos.enabled) R.string.sos_item_unavailable else R.string.status_no_item)
             adapter == null -> getString(R.string.status_no_nfc)
             !hce -> getString(R.string.status_no_hce)
             !adapter.isEnabled -> getString(R.string.status_nfc_off)
@@ -241,7 +388,8 @@ class MainActivity : Activity() {
         }
         // WO-2: even with chip mode off, any unknown residual content remains visible with Retry.
         val chipDetails = if (chipAvailable && serving && state != chipMessage) chipMessage else null
-        status.text = listOfNotNull(prefix, state, chipDetails, routing).joinToString("\n")
+        status.text = listOfNotNull(prefix, state, chipDetails, routing,
+            sosStatus(this, sos, enabled, chipMode)).joinToString("\n")
         // WO-19: an RF-failed item exposes the Retry action named by its appended recovery hint.
         chipRetry.visibility = if (ChipSync.retryAvailable(this, chipDisplay)) View.VISIBLE else View.GONE
     }

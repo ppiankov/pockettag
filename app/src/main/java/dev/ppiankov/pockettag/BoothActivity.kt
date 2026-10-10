@@ -41,7 +41,8 @@ class BoothActivity : Activity() {
             // WO-2: chip state and verification changes refresh the booth warning in place.
             // WO-19: completed detection and vendor metadata refresh the same chip warning.
             key == TagPrefs.KEY_CHIP_MODE || key == TagPrefs.KEY_VERIFIED_CHIP ||
-            key == TagPrefs.KEY_CHIP_AVAILABLE || key == TagPrefs.KEY_CHIP_WRITE_STATUS) {
+            key == TagPrefs.KEY_CHIP_AVAILABLE || key == TagPrefs.KEY_CHIP_WRITE_STATUS ||
+            key in SosPrefs.KEYS) { // WO-22: tile and notification changes refresh served identity in Booth.
             runOnUiThread { if (resumed) refresh() }
         }
     }
@@ -102,12 +103,15 @@ class BoothActivity : Activity() {
     // WO-15: all event sources render the same storage, radio, serving, and encoding state.
     private fun refresh(flashChanges: Boolean = true) {
         val savedItems = store.load()
-        val selected = savedItems.activeItem
+        val sos = SosPrefs(this).load() // WO-22: the displayed item and count destination follow the override.
+        // WO-22: retain the normal paused label while resolving SOS through the same serving rule.
+        val selected = servedItem(savedItems, enabled = true, sos = sos)
         val adapter = runCatching { NfcAdapter.getDefaultAdapter(this) }.getOrNull()
         // WO-2: the chip answers independently of HCE, so its proof and count limitation are explicit.
         val chipAvailable = ChipSync.available(this)
         val chipMode = chipAvailable && TagPrefs.chipMode(this)
-        val serving = TagPrefs.enabled(this)
+        val enabled = TagPrefs.enabled(this)
+        val serving = enabled || sos.enabled // WO-22: Booth must not show Paused for an active SOS override.
         val chipDisplay = if (chipAvailable) ChipSync.display(this, savedItems) else null
         val state = boothStatus(
             readable = savedItems.readable,
@@ -117,12 +121,12 @@ class BoothActivity : Activity() {
             nfcEnabled = runCatching { adapter?.isEnabled == true }.getOrDefault(false),
             // WO-2: the global Serve tag setting governs both the host and controller paths.
             serving = serving,
-            itemEncodes = savedItems.ndefFile(enabled = true) != null,
+            itemEncodes = servedNdefFile(selected) != null, // WO-22: validate the displayed SOS item's bytes.
         )
         label.text = selected?.label.orEmpty()
         status.text = when (state) {
             BoothStatus.UNREADABLE -> getString(R.string.status_unreadable)
-            BoothStatus.NO_ITEM -> getString(R.string.status_no_item)
+            BoothStatus.NO_ITEM -> getString(if (sos.enabled) R.string.sos_item_unavailable else R.string.status_no_item)
             BoothStatus.NO_NFC -> getString(R.string.status_no_nfc)
             BoothStatus.NO_HCE -> getString(R.string.status_no_hce)
             BoothStatus.NFC_OFF -> getString(R.string.status_nfc_off)
@@ -141,6 +145,8 @@ class BoothActivity : Activity() {
             status.append("\n" + ChipSync.message(this, chipDisplay, selected?.label.orEmpty()))
         }
         if (chipMode) status.append("\n" + getString(R.string.booth_chip_note))
+        // WO-22: state the same override and measured locked-screen limits as the main screen.
+        sosStatus(this, sos, enabled, chipMode)?.let { status.append("\n" + it) }
         // WO-19: the RF recovery hint must have a usable Retry action after a verified EMPTY fallback.
         chipRetry.visibility = if (ChipSync.retryAvailable(this, chipDisplay)) View.VISIBLE else View.GONE
         nfcSettings.visibility = if (state == BoothStatus.NFC_OFF) View.VISIBLE else View.GONE

@@ -210,19 +210,30 @@ class ShareReceiverTest {
             .newDocumentBuilder().parse(File("src/main/AndroidManifest.xml"))
         val namespace = "http://schemas.android.com/apk/res/android"
         val permissions = document.getElementsByTagName("uses-permission")
-        assertEquals(1, permissions.length)
+        // WO-22: the pinned manifest amendment adds only optional Open-mode notifications.
+        assertEquals(2, permissions.length)
         assertEquals("android.permission.NFC", (permissions.item(0) as Element).getAttributeNS(namespace, "name"))
+        assertEquals(setOf("android.permission.NFC", "android.permission.POST_NOTIFICATIONS"),
+            (0 until permissions.length).map { (permissions.item(it) as Element).getAttributeNS(namespace, "name") }.toSet())
         val application = document.getElementsByTagName("application").item(0)
         val components = (0 until application.childNodes.length)
             .mapNotNull { application.childNodes.item(it) as? Element }
             .filter { it.tagName in setOf("activity", "activity-alias", "service", "receiver", "provider") }
             .associateBy { it.getAttributeNS(namespace, "name") }
         val exports = mapOf(".MainActivity" to "true", ".EditItemActivity" to "false",
-            ".BoothActivity" to "false", ".NdefHostApduService" to "true", ".ShareReceiverActivity" to "true")
+            ".BoothActivity" to "false", ".NdefHostApduService" to "true", ".ShareReceiverActivity" to "true",
+            ".SosTileService" to "true", ".SosOffReceiver" to "false") // WO-22: exact pinned SOS components.
         assertEquals(exports, components.mapValues { it.value.getAttributeNS(namespace, "exported") })
         val filters = components.mapValues { it.value.getElementsByTagName("intent-filter") }
         assertEquals(mapOf(".MainActivity" to 1, ".EditItemActivity" to 0, ".BoothActivity" to 0,
-            ".NdefHostApduService" to 1, ".ShareReceiverActivity" to 1), filters.mapValues { it.value.length })
+            ".NdefHostApduService" to 1, ".ShareReceiverActivity" to 1,
+            ".SosTileService" to 1, ".SosOffReceiver" to 0), filters.mapValues { it.value.length })
+        // WO-22: only Android's Quick Settings binder may reach the exported tile service.
+        val tileActions = (filters.getValue(".SosTileService").item(0) as Element).getElementsByTagName("action")
+        assertEquals(1, tileActions.length)
+        assertEquals("android.service.quicksettings.action.QS_TILE", (tileActions.item(0) as Element).getAttributeNS(namespace, "name"))
+        assertEquals("android.permission.BIND_QUICK_SETTINGS_TILE",
+            components.getValue(".SosTileService").getAttributeNS(namespace, "permission"))
         val filter = filters.getValue(".ShareReceiverActivity").item(0) as Element
         val entries = (0 until filter.childNodes.length).mapNotNull { filter.childNodes.item(it) as? Element }
         assertEquals(listOf("action", "category", "data"), entries.map { it.tagName })
