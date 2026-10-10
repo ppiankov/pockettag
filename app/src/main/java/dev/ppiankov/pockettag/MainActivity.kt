@@ -22,6 +22,8 @@ import android.widget.LinearLayout
 import android.widget.RadioButton
 import android.widget.Switch
 import android.widget.Spinner
+import android.widget.AdapterView
+import android.widget.ScrollView
 import android.widget.TextView
 
 // WO-3: select a saved item while retaining serving, routing, and tap diagnostics.
@@ -38,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var sosSwitch: Switch // WO-22: emergency override leaves the normal selection intact.
     private lateinit var sosMode: Button // WO-22: presentation mode can change while SOS is on.
     private var renderingSos = false // WO-22: preference rendering must not trigger another activation.
+    private var sosBeaconControls: Pair<View, Spinner>? = null // WO-28: Off/Covert hides an already-open setup entry too.
     private lateinit var status: TextView
     private lateinit var trace: TextView
 
@@ -191,6 +194,11 @@ class MainActivity : Activity() {
         sosMode.text = getString(R.string.sos_mode_label,
             getString(if (state.mode == SosMode.OPEN) R.string.sos_open else R.string.sos_covert))
         findViewById<Button>(R.id.sos_setup).isEnabled = store.load().readable
+        // WO-28: neither saved Covert mode nor an unsaved Covert draft offers the public beacon.
+        sosBeaconControls?.let { (controls, mode) ->
+            controls.visibility = if (beaconAvailable(state) &&
+                SosMode.entries[mode.selectedItemPosition] == SosMode.OPEN) View.VISIBLE else View.GONE
+        }
     }
 
     // WO-22: permission is an optional visibility choice, requested once after an Open activation.
@@ -248,11 +256,47 @@ class MainActivity : Activity() {
             content.addView(phone)
             content.addView(message)
         }
+        // WO-28: display preferences live inside setup, keeping the normal main layout unchanged.
+        val beaconSettings = SosBeaconPrefs(this).load()
+        val beaconControls = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val beaconStyle = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf(getString(R.string.sos_beacon_steady), getString(R.string.sos_beacon_pulse)))
+            setSelection(beaconSettings.style.ordinal)
+        }
+        val beaconLine = EditText(this).apply {
+            setHint(R.string.sos_beacon_owner_hint)
+            setSingleLine(true)
+            setText(beaconSettings.ownerLine)
+        }
+        val showBeacon = Button(this).apply { setText(R.string.sos_beacon_show) }
+        beaconControls.addView(beaconStyle)
+        beaconControls.addView(beaconLine)
+        beaconControls.addView(showBeacon)
+        content.addView(beaconControls)
+        sosBeaconControls = beaconControls to mode
+        mode.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                refreshSos()
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
+        refreshSos()
         val error = TextView(this)
         content.addView(error)
         val dialog = AlertDialog.Builder(this).setTitle(R.string.sos_setup)
-            .setView(content).setPositiveButton(R.string.save, null)
+            .setView(ScrollView(this).apply { addView(content) }).setPositiveButton(R.string.save, null)
             .setNegativeButton(android.R.string.cancel, null).create()
+        // WO-28: the private entry rechecks current policy and never applies an unsaved SOS draft.
+        showBeacon.setOnClickListener {
+            if (!beaconAvailable(SosPrefs(this).load())) return@setOnClickListener
+            SosBeaconPrefs(this).save(SosBeaconStyle.entries[beaconStyle.selectedItemPosition], beaconLine.text.toString())
+            dialog.dismiss()
+            startActivity(Intent(this, SosBeaconActivity::class.java))
+        }
+        dialog.setOnDismissListener {
+            if (sosBeaconControls?.first === beaconControls) sosBeaconControls = null
+        }
         dialog.setOnShowListener {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 try {
@@ -266,6 +310,8 @@ class MainActivity : Activity() {
                     }
                     if (!store.configureSos(item, SosMode.entries[mode.selectedItemPosition],
                             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)) return@setOnClickListener
+                    // WO-28: saving visual choices cannot activate SOS or change the normal selection.
+                    SosBeaconPrefs(this).save(SosBeaconStyle.entries[beaconStyle.selectedItemPosition], beaconLine.text.toString())
                     if (activate) SosController.setEnabled(this, true)
                     requestSosNotificationPermission()
                     refreshItems()

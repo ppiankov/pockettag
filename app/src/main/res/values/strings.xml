@@ -92,6 +92,13 @@
     <string name="sos_lock_p40">Huawei P40: answers while locked with the screen on; no response with the screen off.</string>
     <string name="sos_lock_s25">Galaxy S25: Samsung shows a chooser between Embedded tag and PocketTag NDEF tag and requires unlocking. SOS while locked is unavailable.</string>
     <string name="sos_lock_unverified">Locked-screen serving has not been tested on this phone. Keep it unlocked.</string>
+    <!-- WO-28: only Open SOS has a visible screen, with a deliberately slow optional pulse. -->
+    <string name="sos_beacon_show">Show SOS screen</string>
+    <string name="sos_beacon_instruction">SOS — tap your phone here for details</string>
+    <string name="sos_beacon_steady">Steady red</string>
+    <string name="sos_beacon_pulse">Slow pulse</string>
+    <string name="sos_beacon_owner_hint">Public line on the SOS screen (optional)</string>
+    <string name="sos_beacon_exit">Exit</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>

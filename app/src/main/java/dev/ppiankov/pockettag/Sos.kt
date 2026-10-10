@@ -143,6 +143,7 @@ internal object SosController {
     private const val OFF_REQUEST = 2201 // WO-22: Off has an explicit immutable broadcast token.
     private const val MAIN_REQUEST = 2202 // WO-22: opening the launcher grants no toggle authority.
     const val PERMISSION_REQUEST = 2203 // WO-22: identify the first Open notification permission result.
+    private const val BEACON_REQUEST = 2801 // WO-28: the private beacon has a distinct immutable activity token.
 
     fun setEnabled(context: Context, enabled: Boolean): Boolean {
         val prefs = SosPrefs(context)
@@ -191,12 +192,20 @@ internal object SosController {
                         Intent(context, SosOffReceiver::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
                     val main = PendingIntent.getActivity(context, MAIN_REQUEST,
                         Intent(context, MainActivity::class.java), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-                    val notification = builder.setSmallIcon(normalIcon(context))
+                    builder.setSmallIcon(normalIcon(context))
                         .setContentTitle(context.getString(R.string.sos_notification_title))
                         .setContentIntent(main).setOngoing(true).setOnlyAlertOnce(true)
                         .setVisibility(Notification.VISIBILITY_PUBLIC)
                         .addAction(Notification.Action.Builder(null, context.getString(R.string.sos_off), off).build())
-                        .build()
+                    // WO-28: Covert and Off have no beacon action, even after process restoration.
+                    if (beaconAvailable(state)) {
+                        val beacon = PendingIntent.getActivity(context, BEACON_REQUEST,
+                            Intent(context, SosBeaconActivity::class.java),
+                            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+                        builder.addAction(Notification.Action.Builder(null,
+                            context.getString(R.string.sos_beacon_show), beacon).build())
+                    }
+                    val notification = builder.build()
                     try {
                         manager.notify(NOTIFICATION_ID, notification)
                     } catch (_: SecurityException) {
@@ -230,4 +239,54 @@ internal fun sosStatus(context: Context, sos: SosState, enabled: Boolean, chipMo
         if (sos.mode == SosMode.OPEN && !SosController.notificationsAvailable(context)) {
             context.getString(R.string.sos_notification_unavailable)
         } else null, lock).joinToString("\n")
+}
+
+// WO-28: display eligibility is presentation policy, separate from the shared serving rule.
+internal fun beaconAvailable(sos: SosState): Boolean = sos.enabled && sos.mode == SosMode.OPEN
+
+// WO-28: modern lock-screen methods avoid legacy double-pause entry; Power must not resume the beacon later.
+internal fun beaconFinishesOnPause(api: Int): Boolean = api >= Build.VERSION_CODES.O_MR1
+
+// WO-28: there is no faster setting; steady is the safe default before any operator pulse check.
+internal enum class SosBeaconStyle { STEADY, PULSE }
+
+// WO-28: a full red/black cycle takes two seconds, so each visible phase lasts at least one second.
+internal const val SOS_PULSE_PERIOD_MS = 2000L
+internal const val SOS_PULSE_PHASE_MS = SOS_PULSE_PERIOD_MS / 2
+internal val SOS_BEACON_RED = 0xFFB71C1C.toInt() // WO-28: dark red keeps white instructions readable.
+internal val SOS_BEACON_BLACK = 0xFF000000.toInt() // WO-28: the alternate pulse phase remains high contrast.
+
+// WO-28: instructions retain contrast in both phases without flashing text or controls.
+internal fun beaconBackground(style: SosBeaconStyle, bright: Boolean): Int =
+    if (style == SosBeaconStyle.STEADY || bright) SOS_BEACON_RED else SOS_BEACON_BLACK
+
+// WO-28: these preferences describe only the visible beacon, never SOS activation or serving.
+internal data class SosBeaconSettings(
+    val style: SosBeaconStyle = SosBeaconStyle.STEADY, // WO-28: pulse requires an explicit saved choice.
+    val ownerLine: String = "", // WO-28: no owner information appears unless deliberately entered.
+)
+
+// WO-28: visual settings reuse private storage without writing any SOS or selection key.
+internal class SosBeaconPrefs(private val prefs: SharedPreferences) {
+    constructor(context: Context) : this(TagPrefs.prefs(context))
+
+    fun load(): SosBeaconSettings = try {
+        val values = prefs.all
+        SosBeaconSettings(
+            style = SosBeaconStyle.entries.firstOrNull { it.name == values[KEY_STYLE] } ?: SosBeaconStyle.STEADY,
+            ownerLine = values[KEY_OWNER_LINE] as? String ?: "",
+        )
+    } catch (_: Exception) {
+        SosBeaconSettings()
+    }
+
+    fun save(style: SosBeaconStyle, ownerLine: String) {
+        prefs.edit().putString(KEY_STYLE, style.name).putString(KEY_OWNER_LINE, ownerLine).apply()
+    }
+
+    companion object {
+        const val KEY_STYLE = "sos_beacon_style" // WO-28: persist only STEADY or PULSE presentation.
+        const val KEY_OWNER_LINE = "sos_beacon_owner_line" // WO-28: optional deliberately public screen text.
+        val KEYS = setOf(KEY_STYLE, KEY_OWNER_LINE) // WO-28: refresh display settings without changing the pulse cadence.
+    }
 }

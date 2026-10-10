@@ -222,12 +222,14 @@ class ShareReceiverTest {
             .associateBy { it.getAttributeNS(namespace, "name") }
         val exports = mapOf(".MainActivity" to "true", ".EditItemActivity" to "false",
             ".BoothActivity" to "false", ".NdefHostApduService" to "true", ".ShareReceiverActivity" to "true",
-            ".SosTileService" to "true", ".SosOffReceiver" to "false") // WO-22: exact pinned SOS components.
+            ".SosTileService" to "true", ".SosOffReceiver" to "false", // WO-22: exact pinned SOS components.
+            ".SosBeaconActivity" to "false") // WO-28: the sole pinned private beacon addition.
         assertEquals(exports, components.mapValues { it.value.getAttributeNS(namespace, "exported") })
         val filters = components.mapValues { it.value.getElementsByTagName("intent-filter") }
         assertEquals(mapOf(".MainActivity" to 1, ".EditItemActivity" to 0, ".BoothActivity" to 0,
             ".NdefHostApduService" to 1, ".ShareReceiverActivity" to 1,
-            ".SosTileService" to 1, ".SosOffReceiver" to 0), filters.mapValues { it.value.length })
+            ".SosTileService" to 1, ".SosOffReceiver" to 0,
+            ".SosBeaconActivity" to 0), filters.mapValues { it.value.length }) // WO-28: no external beacon entry.
         // WO-22: only Android's Quick Settings binder may reach the exported tile service.
         val tileActions = (filters.getValue(".SosTileService").item(0) as Element).getElementsByTagName("action")
         assertEquals(1, tileActions.length)

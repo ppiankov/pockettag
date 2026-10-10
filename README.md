@@ -118,6 +118,19 @@ shows an **Embedded tag / PocketTag NDEF tag** chooser and requires unlocking, s
 while locked is unavailable**. Chip-mode SOS still requires verified publication on a
 supported phone. SOS reader and chip-mode checks are not yet tested.
 
+**SOS screen:** while SOS is on in Open mode, **Show SOS screen** is available in SOS
+setup and the Open notification. It displays “SOS — tap your phone here for details”
+over the lock screen, with an optional public line and a reminder to hold the other
+phone against this one. It keeps the screen awake, requests maximum brightness for
+that window only, and prefers PocketTag's NFC service while visible. Steady red with
+white text is the default. The optional slow pulse alternates red and black once per
+second (a full cycle takes two seconds), keeping the signal slow and avoiding a strobe;
+there is no faster setting. Back, Power or **Exit** leaves the screen without turning
+SOS off or unlocking the phone. Covert has no SOS screen entry or notification action.
+The screen cannot remove the Galaxy S25's unlocking requirement and alerts no one by
+itself; someone still has to hold their phone against this one. Locked beacon and
+chip-mode reader checks are not yet tested.
+
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
 unavailable, and **Sent at &lt;time&gt;** stays visible after each completed read, with seconds
@@ -281,8 +294,11 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
 The tag is read-only: the CC file denies write access.
 
 Permissions: CI runs `aapt dump permissions` on every build and fails if
-`android.permission.INTERNET` appears. The only permission the app requests is
-`android.permission.NFC`. Output for 0.2.0:
+`android.permission.INTERNET` appears. The app requests
+`android.permission.NFC` for taps; Open SOS also requests optional
+`android.permission.POST_NOTIFICATIONS` on Android 13 and newer. The SOS screen uses
+only window flags and brightness, with no wake-lock or system-settings permission.
+Output for 0.2.0:
 
 ```
 package: dev.ppiankov.pockettag

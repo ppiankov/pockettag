@@ -52,6 +52,12 @@
             android:exported="false"
             android:theme="@android:style/Theme.Material.Light.NoActionBar.Fullscreen" />
 
+        <!-- WO-28: only setup and an explicit Open notification token may open the beacon. -->
+        <activity
+            android:name=".SosBeaconActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Material.Light.NoActionBar.Fullscreen" />
+
         <!-- WO-22: Android alone may bind the SOS tile; it is not another requested app permission. -->
         <service
             android:name=".SosTileService"

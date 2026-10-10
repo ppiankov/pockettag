@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Open-only SOS screen over the lock screen, with a public instruction, an optional
+  owner line, steady or slow-pulse display, and window-only brightness and screen-on handling.
 - SOS override with Open and Covert modes, a Quick Settings tile, an optional Open
   notification and Off action, and shared HCE, chip-mode and Booth serving identity.
 - Saved emergency cards with a help-text record followed by a contact telephone record,
