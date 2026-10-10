@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Saved emergency cards with a help-text record followed by a contact telephone record,
+  optional message and notes, and a persistent editor privacy warning.
 - Share-menu support for text and web links, with an editable draft and selection only
   after Save.
 - Saved **Keep screen awake** switch for the main screen, default off, with normal timeout

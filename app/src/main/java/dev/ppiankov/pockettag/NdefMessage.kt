@@ -75,6 +75,20 @@ object NdefMessage {
         return record(HEADER_SHORT_EXTERNAL, typeBytes, payload)
     }
 
+    // WO-13: compose existing encoded records without duplicating their short/long length rules.
+    fun compose(vararg records: ByteArray): ByteArray {
+        require(records.isNotEmpty()) { "An NDEF message needs at least one record." }
+        return records.mapIndexed { index, encoded ->
+            require(encoded.isNotEmpty()) { "An NDEF record is empty." }
+            encoded.copyOf().apply {
+                var header = this[0].toInt() and (MB_MASK or ME_MASK).inv()
+                if (index == 0) header = header or MB_MASK
+                if (index == records.lastIndex) header = header or ME_MASK
+                this[0] = header.toByte()
+            }
+        }.fold(ByteArray(0)) { message, encoded -> message + encoded }
+    }
+
     // WO-3: clearing SR changes the length field to four big-endian bytes.
     private fun record(shortHeader: Byte, type: ByteArray, payload: ByteArray): ByteArray {
         val short = payload.size <= MAX_SHORT_PAYLOAD
@@ -105,6 +119,8 @@ object NdefMessage {
     private const val MAX_TEXT_LANGUAGE_BYTES = 63 // WO-8: UTF-8 status reserves six bits for language length.
     private const val SR_MASK = 0x10 // WO-3: short-record flag in the record header.
     private const val NLEN_SIZE = 2 // WO-3: Type 4 file length prefix in bytes.
+    private const val MB_MASK = 0x80 // WO-13: only the first record starts the message.
+    private const val ME_MASK = 0x40 // WO-13: only the last record ends the message.
 }
 
 object Type4Constants {

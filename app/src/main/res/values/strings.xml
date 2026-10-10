@@ -65,6 +65,11 @@
     <string name="show_wifi_password">Show password</string>
     <string name="hidden_network">Hidden network</string>
     <string name="error_wifi_security">Choose network security.</string>
+    <!-- WO-13: the emergency editor makes the public nature of every field explicit. -->
+    <string name="type_iffound">Emergency card</string>
+    <string name="field_emergency_contact">Contact name</string>
+    <string name="field_emergency_notes">Notes (optional)</string>
+    <string name="iffound_privacy">Anyone who taps your phone can read this. Do not include anything you would not write on a luggage tag.</string>
     <string name="field_raw_uri">Link</string>
     <string name="field_url">Web link (http:// or https://)</string>
     <string name="field_number">Phone number</string>

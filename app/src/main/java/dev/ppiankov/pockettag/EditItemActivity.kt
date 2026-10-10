@@ -218,6 +218,17 @@ class EditItemActivity : Activity() {
                 }
                 updatePasswordEnabled()
             }
+            // WO-13: the privacy warning stays in the form while the public emergency fields are edited.
+            TagItem.Type.IFFOUND -> {
+                val item = existing as? TagItem.IfFound
+                findViewById<LinearLayout>(R.id.item_fields).addView(TextView(this).apply {
+                    setText(R.string.iffound_privacy)
+                })
+                addField("contactName", R.string.field_emergency_contact, item?.contactName.orEmpty())
+                addField("contactPhone", R.string.field_number, item?.contactPhone.orEmpty(), InputType.TYPE_CLASS_PHONE)
+                addField("message", R.string.field_body, item?.message.orEmpty(), multiline = true)
+                addField("notes", R.string.field_emergency_notes, item?.notes.orEmpty(), multiline = true)
+            }
         }
     }
 
@@ -281,6 +292,9 @@ class EditItemActivity : Activity() {
                     requireNotNull(TagItem.Wifi.Security.entries.getOrNull(wifiSecurity?.selectedItemPosition ?: -1)) {
                         getString(R.string.error_wifi_security)
                     }, value("password"), wifiHidden?.isChecked ?: false, id)
+                // WO-13: the common save boundary validates the complete two-record file before persistence.
+                TagItem.Type.IFFOUND -> TagItem.IfFound(label, value("message"), value("contactName"),
+                    value("contactPhone"), value("notes"), id)
             }
             // WO-21: report the whole encoded file size before any save when the shared limit rejects it.
             val message = item.ndefMessage()
@@ -352,4 +366,5 @@ internal fun TagItem.Type.titleResource(): Int = when (this) {
     TagItem.Type.PLACE -> R.string.type_place // WO-9: use the same name in the selector and editor.
     TagItem.Type.APP -> R.string.type_app // WO-10: Android app records share the selector's title mapping.
     TagItem.Type.WIFI -> R.string.type_wifi // WO-7: the selector and credential editor use the same title.
+    TagItem.Type.IFFOUND -> R.string.type_iffound // WO-13: Add and edit share the emergency-card name.
 }

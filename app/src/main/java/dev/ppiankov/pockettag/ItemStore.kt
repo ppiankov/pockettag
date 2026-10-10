@@ -58,6 +58,9 @@ object ItemJson {
             // WO-7: credentials remain in the private item document, with no diagnostic copy.
             is TagItem.Wifi -> json.put("ssid", item.ssid).put("security", item.security.name)
                 .put("password", item.password).put("hidden", item.hidden)
+            // WO-13: the emergency contact and public text survive edits without changing the record order.
+            is TagItem.IfFound -> json.put("message", item.message).put("contactName", item.contactName)
+                .put("contactPhone", item.contactPhone).put("notes", item.notes)
         }
         return json
     }
@@ -147,6 +150,9 @@ object ItemJson {
             // WO-7: invalid credentials stay opaque instead of being coerced or discarded.
             "wifi" -> TagItem.Wifi(label, json.string("ssid"), TagItem.Wifi.Security.valueOf(json.string("security")),
                 json.optionalString("password") ?: "", json.optionalBoolean("hidden") ?: false, id)
+            // WO-13: malformed emergency fields remain opaque under the existing preservation rules.
+            "iffound" -> TagItem.IfFound(label, json.string("message"), json.string("contactName"),
+                json.string("contactPhone"), json.optionalString("notes") ?: "", id)
             else -> null
         }
     }

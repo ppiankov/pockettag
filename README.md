@@ -10,9 +10,9 @@ Your phone is the business card: choose what to share, then tap another phone.
 
 A tiny Android app that makes the phone act like an NFC sticker carrying your selected
 web link, contact card (vCard), WhatsApp chat, call, email, SMS link, text note, place,
-Android app, or Wi-Fi network.
+Android app, Wi-Fi network, or emergency card.
 It emulates an NFC Forum Type 4 Tag through Android host card emulation (HCE) and serves
-one NDEF record.
+an NDEF message; emergency cards contain a text record followed by a telephone record.
 The other phone reads an ordinary NFC tag; how it handles the content depends on its apps
 and NFC support. For links, the other phone needs nothing installed.
 
@@ -80,6 +80,19 @@ selected item.
 Switch **Keep screen awake** on to prevent automatic screen timeout while PocketTag's main
 screen is visible. It starts off and remembers your choice. Leaving the screen lets the
 phone time out normally; the power button still locks it.
+
+**Emergency card:** choose **Add → Emergency card**, enter the contact's name and phone
+number, and add an optional message or notes. A tap sends “If found, please call
+&lt;contact name&gt;: &lt;phone&gt;”, then the message and notes, as a text record; a telephone
+record for the same number follows. The reader decides which record to show or act on.
+Emergency-card reader results have not yet been tested.
+
+The editor keeps this privacy notice visible: **Anyone who taps your phone can read this.
+Do not include anything you would not write on a luggage tag.** The details are entered
+manually and are public to anyone who taps, including while locked in chip mode. HCE
+serving needs the phone unlocked; use generic chip mode on supported phones for locked
+serving. An emergency card alerts no one by itself and is not a replacement for Android's
+Emergency SOS or calling emergency services.
 
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
@@ -207,7 +220,8 @@ reader phone ──APDU──▶ Android NFC stack ──▶ NdefHostApduService
 - `TagItem.kt`: pure Kotlin content types, input validation, URI generation, and vCard 3.0
   encoding (UTF-8, escaped values, CRLF endings, no line folding).
 - `NdefMessage.kt`: pure Kotlin URI, Text, MIME, and external-type record encoders, using short records through
-  255 payload bytes and four-byte lengths beyond that. The NDEF file adds a two-byte NLEN;
+  255 payload bytes and four-byte lengths beyond that; composition marks only the first
+  and last records as message boundaries. The NDEF file adds a two-byte NLEN;
   the Capability Container advertises a 1024-byte maximum. `Type4Tag` is the APDU state
   machine: SELECT application → SELECT CC → READ BINARY → SELECT NDEF → READ BINARY.
 - `ItemStore.kt`: saved items as JSON in the existing private `pockettag` preferences

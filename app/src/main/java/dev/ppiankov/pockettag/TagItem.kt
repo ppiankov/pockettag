@@ -35,7 +35,8 @@ sealed class TagItem(id: String, label: String) {
         NOTE("note"), // WO-8: append creatable types without changing saved discriminators.
         PLACE("place"), // WO-9: coordinates use a stable discriminator without a location permission.
         APP("app"), // WO-10: Android application records have a stable saved type.
-        WIFI("wifi"); // WO-7: Wi-Fi credentials use the existing private item document.
+        WIFI("wifi"), // WO-7: Wi-Fi credentials use the existing private item document.
+        IFFOUND("iffound"); // WO-13: emergency cards retain a distinct saved discriminator.
 
         companion object {
             // WO-3: legacy links remain editable but cannot be created from the Add menu.
@@ -349,6 +350,26 @@ sealed class TagItem(id: String, label: String) {
 
             // WO-7: attribute types, lengths, and numeric values share the required two-byte byte order.
             private fun word(value: Int): ByteArray = byteArrayOf((value ushr BITS_PER_BYTE).toByte(), value.toByte())
+        }
+    }
+
+    // WO-13: a finder sees the help text first and can then use the contact's telephone record.
+    class IfFound(
+        label: String,
+        val message: String, // WO-13: free text remains exactly as entered.
+        val contactName: String, // WO-13: the displayed contact is entered manually.
+        contactPhone: String,
+        val notes: String = "", // WO-13: optional public notes are part of the same text record.
+        id: String = UUID.randomUUID().toString(),
+    ) : TagItem(id, label) {
+        override val type = Type.IFFOUND // WO-13: keep emergency cards separate from plain notes.
+        val contactPhone: String = phoneNumber(contactPhone) // WO-13: both records use one validated number.
+
+        // WO-13: omitted optional lines do not add blank separators to the fixed help layout.
+        override fun ndefMessage(): ByteArray {
+            val text = listOf("If found, please call $contactName: $contactPhone", message, notes)
+                .filter { it.isNotEmpty() }.joinToString("\n")
+            return NdefMessage.compose(NdefMessage.textRecord(text), NdefMessage.uriRecord("tel:$contactPhone"))
         }
     }
 
