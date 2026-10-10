@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.os.Bundle
 import android.text.InputType
+import android.text.method.DigitsKeyListener
 import android.text.method.HideReturnsTransformationMethod
 import android.text.method.PasswordTransformationMethod
 import android.view.View
@@ -15,6 +16,7 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
 import android.widget.TextView
+import java.util.Locale
 import java.util.UUID
 
 // WO-3: one framework editor validates the complete tag before saving any preference.
@@ -46,6 +48,18 @@ class EditItemActivity : Activity() {
         title = getString(type.titleResource())
         error = findViewById(R.id.item_error)
         buildFields()
+        // WO-21: a shared draft is prefilled before restoration and remains unsaved until Save.
+        if (existing == null && intent.getBooleanExtra(EXTRA_SELECT_AFTER_SAVE, false)) {
+            val contentKey = when (type) {
+                TagItem.Type.LINK -> "url"
+                TagItem.Type.NOTE -> "text"
+                else -> null
+            }
+            if (contentKey != null) {
+                fields.getValue("label").setText(intent.getStringExtra(EXTRA_SHARED_LABEL).orEmpty())
+                fields.getValue(contentKey).setText(intent.getStringExtra(EXTRA_SHARED_CONTENT).orEmpty())
+            }
+        }
         fields.forEach { (key, field) ->
             savedInstanceState?.getString("draft:$key")?.let { field.setText(it) }
         }
@@ -129,8 +143,16 @@ class EditItemActivity : Activity() {
                 addField("name", R.string.field_place_name, item?.name.orEmpty())
                 val numeric = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL or
                     InputType.TYPE_NUMBER_FLAG_SIGNED
-                addField("latitude", R.string.field_latitude, item?.latitude?.toString().orEmpty(), numeric)
-                addField("longitude", R.string.field_longitude, item?.longitude?.toString().orEmpty(), numeric)
+                // WO-24: editing reuses the served coordinate format rather than scientific notation.
+                addField("latitude", R.string.field_latitude, item?.latitude?.let(TagItem.Place::coordinate).orEmpty(), numeric)
+                addField("longitude", R.string.field_longitude, item?.longitude?.let(TagItem.Place::coordinate).orEmpty(), numeric)
+                // WO-24: let pasted decimal commas reach validation while retaining the numeric keyboard.
+                for (key in listOf("latitude", "longitude")) {
+                    fields.getValue(key).apply {
+                        keyListener = DigitsKeyListener.getInstance(COORDINATE_CHARACTERS)
+                        setRawInputType(numeric)
+                    }
+                }
                 addField("mapsLink", R.string.field_maps_link, "",
                     InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI)
             }
@@ -245,8 +267,9 @@ class EditItemActivity : Activity() {
                     val coordinates = if (value("mapsLink").isNotBlank()) {
                         TagItem.Place.coordinatesFromLink(value("mapsLink"))
                     } else {
-                        val latitude = value("latitude").trim().toDoubleOrNull()
-                        val longitude = value("longitude").trim().toDoubleOrNull()
+                        // WO-24: coordinate fields share the single-comma parsing rule.
+                        val latitude = TagItem.Place.coordinateFromInput(value("latitude"))
+                        val longitude = TagItem.Place.coordinateFromInput(value("longitude"))
                         require(latitude != null && longitude != null) { getString(R.string.error_coordinates) }
                         latitude to longitude
                     }
@@ -259,11 +282,26 @@ class EditItemActivity : Activity() {
                         getString(R.string.error_wifi_security)
                     }, value("password"), wifiHidden?.isChecked ?: false, id)
             }
-            NdefMessage.ndefFile(item.ndefMessage())
+            // WO-21: report the whole encoded file size before any save when the shared limit rejects it.
+            val message = item.ndefMessage()
+            try {
+                NdefMessage.ndefFile(message)
+            } catch (_: NdefTooLargeException) {
+                // WO-21: the plural quantity counts the whole file, just like the displayed size.
+                val template = resources.getQuantityString(R.plurals.error_too_long,
+                    message.size + TAG_LENGTH_PREFIX_BYTES)
+                error.text = tooLargeItemMessage(template, message)
+                error.visibility = View.VISIBLE
+                return
+            }
             store.save(item)
+            // WO-21: only a saved shared creation changes selection through the existing trigger.
+            if (selectSharedItemAfterSave(existing != null, intent.getBooleanExtra(EXTRA_SELECT_AFTER_SAVE, false))) {
+                store.select(item.id)
+            }
             finish()
         } catch (e: IllegalArgumentException) {
-            error.text = if (e is NdefTooLargeException) getString(R.string.error_too_long) else e.message
+            error.text = e.message
             error.visibility = View.VISIBLE
         }
     }
@@ -285,11 +323,21 @@ class EditItemActivity : Activity() {
     companion object {
         const val EXTRA_ID = "item_id" // WO-3: edit the item with this stable identity.
         const val EXTRA_TYPE = "item_type" // WO-3: choose the immutable type when creating an item.
+        internal const val EXTRA_SHARED_LABEL = "shared_label" // WO-21: the receiver supplies an editable draft label.
+        internal const val EXTRA_SHARED_CONTENT = "shared_content" // WO-21: only the validated shared content is forwarded.
+        internal const val EXTRA_SELECT_AFTER_SAVE = "select_after_save" // WO-21: shared creations select only after validation and Save.
         private const val MULTILINE_ROWS = 3 // WO-3: show room for SMS bodies and contact notes.
         private const val DRAFT_WIFI_SECURITY = "draft:wifi_security" // WO-7: stable security draft key.
         private const val DRAFT_WIFI_HIDDEN = "draft:wifi_hidden" // WO-7: checkbox draft key.
+        private const val COORDINATE_CHARACTERS = "0123456789+-.," // WO-24: preserve both decimal separators for validation.
     }
 }
+
+private const val TAG_LENGTH_PREFIX_BYTES = 2 // WO-21: the reported size includes Type 4's two-byte NLEN.
+
+// WO-21: byte-count errors use encoded bytes rather than text length for every content type.
+internal fun tooLargeItemMessage(template: String, message: ByteArray): String =
+    String.format(Locale.ROOT, template, message.size + TAG_LENGTH_PREFIX_BYTES)
 
 // WO-3: the selector and editor use the same type names without Android in the content model.
 internal fun TagItem.Type.titleResource(): Int = when (this) {

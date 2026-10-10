@@ -72,6 +72,11 @@ installation starts with the same default web link.
 Nonzero tap counts appear under each saved item; hold an item and tap **Reset count** to
 clear its count.
 
+**Share to PocketTag:** share text or a web link from another app, such as WhatsApp, and
+choose PocketTag. Review or edit the label and content, then tap **Save**. The new item
+becomes selected for the next tap. Press Back to cancel without saving or changing the
+selected item.
+
 Switch **Keep screen awake** on to prevent automatic screen timeout while PocketTag's main
 screen is visible. It starts off and remembers your choice. Leaving the screen lets the
 phone time out normally; the power button still locks it.
@@ -137,9 +142,14 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
 | Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
+| Huawei P40 (Huawei Browser shared text) | Samsung Galaxy S25 | **works**: after Save, the tag viewer shows the shared text; a chooser was observed on an earlier attempt |
+| Huawei P40 (Opera shared web link) | Samsung Galaxy S25 | **works**: after Save, the Web link is selected and the reader opens the website on one tap |
+| Huawei P40 (share editor, Cancel) | — | **works**: Back without Save creates no item and keeps the previous selection |
+| Huawei P40 (Opera / Edge share drafts) | — | **works**: selected text and page shares containing additional text open Text note drafts |
 | Huawei P40 (text note) | iPhone 11 | no visible response on a flat, aligned retap; PocketTag's completed-read count increased |
 | Huawei P40 (place) | Samsung Galaxy S25 | **works**: a map opens at the chosen landmark after a retap; the P40's Access Cards screen appeared on one attempt |
 | Huawei P40 (place) | iPhone 11 | **works**: Google Maps opens |
+| Huawei P40 (Place editor) | — | **works**: short links show the coordinate/full-link guidance; a full Google Maps link saves coordinates that reopen in decimal form, including a small latitude without scientific notation |
 | Huawei P40 (app, installed Calculator) | Samsung Galaxy S25 | **works**: Calculator opens |
 | Huawei P40 (app, Firefox not installed) | Samsung Galaxy S25 | **works**: an app-store chooser appears, then Play Store offers installation |
 | Huawei P40 (app) | iPhone 11 | no visible response; PocketTag's completed-read count increased |
@@ -149,6 +159,7 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (chip mode, web link) | Samsung Galaxy S25 | **works**: website opens unlocked, locked, in Booth, and at the Sony boot logo |
+| Sony Xperia XQ-BC72 (chip mode, Chrome shared text) | — | **works**: a short Text note is `WRITTEN`, 184 bytes, with verified read-back; no reader tap was performed |
 | Sony Xperia XQ-BC72 (chip mode, 431-byte contact card) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser (earlier reads reported "unknown tag type") |
 | Sony Xperia XQ-BC72 (chip mode, 99-byte contact card) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; contact import offered on one tap |
 | Sony Xperia XQ-BC72 (chip mode, 340-byte long web link) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; reader tried to open the URL on one tap |
@@ -236,14 +247,19 @@ uses-permission: name='android.permission.NFC'
 - Tap counts measure completed NFC reads, not distinct people, and are stored only on the phone.
 - The whole tag file is limited to 1024 bytes: two bytes of NLEN plus at most 1022 bytes
   of NDEF message, including record headers. Large contact cards or messages may not fit.
+- Share to PocketTag accepts text and links only; photos, files, and voice notes cannot
+  travel over a tap.
 - iPhone background tag reading does not act on contact cards. Reader behaviour varies
   by content type and installed apps; see the tested-devices table.
 - Text notes use UTF-8 NFC Forum Text records with an editable language tag (English by
   default). They can contain multiple lines. In the iPhone 11 check, no visible response
   appeared despite PocketTag recording completed reads.
 - Places open a Google Maps link with coordinates rounded to at most six decimals. Enter
-  coordinates or paste a Google Maps `@lat,lng` or `?q=lat,lng` link; other link forms are
-  not supported. PocketTag does not request your location or provide directions.
+  coordinates or paste a Google Maps `@lat,lng`, `?q=lat,lng`, or `?query=lat,lng` link.
+  Coordinate fields also accept a single decimal comma. Short links such as
+  `maps.app.goo.gl` or `goo.gl/maps` need the internet to open; copy the coordinates or
+  the full link from your browser instead. PocketTag does not resolve short links,
+  request your location, or provide directions.
 - App items use an Android Application Record: the reader opens the installed app or its
   Play Store page. Enter the package name after `id=` in its store URL.
   In the iPhone 11 check, no visible response appeared despite PocketTag recording completed reads.
