@@ -85,7 +85,8 @@ phone time out normally; the power button still locks it.
 number, and add an optional message or notes. A tap sends “If found, please call
 &lt;contact name&gt;: &lt;phone&gt;”, then the message and notes, as a text record; a telephone
 record for the same number follows. The reader decides which record to show or act on.
-Emergency-card reader results have not yet been tested.
+On an unlocked Huawei P40, the Galaxy S25 showed the message in its tag viewer with
+Call options.
 
 The editor keeps this privacy notice visible: **Anyone who taps your phone can read this.
 Do not include anything you would not write on a luggage tag.** The details are entered
@@ -194,6 +195,7 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 email) | Samsung Galaxy S25 | **works**: mail app opens |
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
 | Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
+| Huawei P40 (emergency card, unlocked) | Samsung Galaxy S25 | **works**: the tag viewer shows the help text with Call options |
 | Huawei P40 (Huawei Browser shared text) | Samsung Galaxy S25 | **works**: after Save, the tag viewer shows the shared text; a chooser was observed on an earlier attempt |
 | Huawei P40 (Opera shared web link) | Samsung Galaxy S25 | **works**: after Save, the Web link is selected and the reader opens the website on one tap |
 | Huawei P40 (share editor, Cancel) | — | **works**: Back without Save creates no item and keeps the previous selection |
