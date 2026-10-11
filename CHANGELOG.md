@@ -37,6 +37,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Editor Save stays available in the top bar while the keyboard is open.
 - Shared text accepts styled text and subjects, normalizes plain-text MIME types, and
   opens the editor without a blank receiver screen.
 - Oversized saves report the whole encoded tag file's byte count in the inline error.

@@ -7,6 +7,8 @@ import android.text.InputType
 import android.text.method.DigitsKeyListener
 import android.text.method.HideReturnsTransformationMethod
 import android.text.method.PasswordTransformationMethod
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.AdapterView
@@ -81,6 +83,21 @@ class EditItemActivity : Activity() {
             visibility = if (existing == null) View.GONE else View.VISIBLE
             setOnClickListener { existing?.let { store.resetTapCount(it.id) } }
         }
+    }
+
+    // WO-36: Save stays reachable while the keyboard covers the form's bottom action.
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        super.onCreateOptionsMenu(menu)
+        menu.add(Menu.NONE, SAVE_ACTION_ID, Menu.NONE, R.string.save)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        return true
+    }
+
+    // WO-36: both Save entries use the same validation, persistence and selection path.
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId != SAVE_ACTION_ID) return super.onOptionsItemSelected(item)
+        save()
+        return true
     }
 
     // WO-3: dynamically created fields retain an unsaved draft across recreation.
@@ -335,6 +352,7 @@ class EditItemActivity : Activity() {
     }
 
     companion object {
+        private const val SAVE_ACTION_ID = Menu.FIRST // WO-36: unrelated framework menu actions retain their own IDs.
         const val EXTRA_ID = "item_id" // WO-3: edit the item with this stable identity.
         const val EXTRA_TYPE = "item_type" // WO-3: choose the immutable type when creating an item.
         internal const val EXTRA_SHARED_LABEL = "shared_label" // WO-21: the receiver supplies an editable draft label.
