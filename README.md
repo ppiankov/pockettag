@@ -117,7 +117,10 @@ itself and is not a replacement for Android's Emergency SOS or calling emergency
 On the **P40**, the screen must be on for locked HCE serving. On the **Galaxy S25**, Samsung
 shows an **Embedded tag / PocketTag NDEF tag** chooser and requires unlocking, so **SOS
 while locked is unavailable**. Chip-mode SOS still requires verified publication on a
-supported phone. SOS reader and chip-mode checks are not yet tested.
+supported phone. On an unlocked P40, Open and Covert SOS showed help text and Call options
+on the S25; Open also served with Serve tag off. A locked Sony chip-mode tap delivered SOS
+to the S25 after a verified 187-byte write. Turning SOS off restored the normal web link
+with verified read-back. Call options on that Sony-origin tap were not confirmed.
 
 **SOS screen:** while SOS is on in Open mode, **Show SOS screen** is available in SOS
 setup and the Open notification. It displays “SOS — tap your phone here for details”
@@ -196,6 +199,10 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (v0.2 SMS) | Samsung Galaxy S25 | **works**: messaging app opens |
 | Huawei P40 (text note) | Samsung Galaxy S25 | **works**: the tag viewer shows the note |
 | Huawei P40 (emergency card, unlocked) | Samsung Galaxy S25 | **works**: the tag viewer shows the help text with Call options |
+| Huawei P40 (Open SOS, unlocked) | Samsung Galaxy S25 | **works**: help text and Call options appear while a different normal item is selected |
+| Huawei P40 (Covert SOS, unlocked) | Samsung Galaxy S25 | **works**: help text and Call options appear; no active SOS notification, and the tile says PocketTag |
+| Huawei P40 (Open SOS, Serve tag off, unlocked) | Samsung Galaxy S25 | **works**: help text and Call options appear; the tag status shows the Serve tag override |
+| Huawei P40 (Open SOS, notification Off) | Samsung Galaxy S25 | SOS turns off and keeps the normal selection; its web link opened after a retry, with screen state at contact unconfirmed |
 | Huawei P40 (Huawei Browser shared text) | Samsung Galaxy S25 | **works**: after Save, the tag viewer shows the shared text; a chooser was observed on an earlier attempt |
 | Huawei P40 (Opera shared web link) | Samsung Galaxy S25 | **works**: after Save, the Web link is selected and the reader opens the website on one tap |
 | Huawei P40 (share editor, Cancel) | — | **works**: Back without Save creates no item and keeps the previous selection |
@@ -213,6 +220,8 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Samsung Galaxy S25 | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (Android 13, HCE) | Huawei phone | fails: reader reports "Empty tag" |
 | Sony Xperia XQ-BC72 (chip mode, web link) | Samsung Galaxy S25 | **works**: website opens unlocked, locked, in Booth, and at the Sony boot logo |
+| Sony Xperia XQ-BC72 (chip mode, SOS, locked) | Samsung Galaxy S25 | **works**: operator reports the SOS message after a verified `WRITTEN`, 187 bytes; Call options were not confirmed |
+| Sony Xperia XQ-BC72 (chip mode, SOS off) | — | normal web link restored with verified `WRITTEN`, 16 bytes; no pending state or Retry |
 | Sony Xperia XQ-BC72 (chip mode, Chrome shared text) | — | **works**: a short Text note is `WRITTEN`, 184 bytes, with verified read-back; no reader tap was performed |
 | Sony Xperia XQ-BC72 (chip mode, 431-byte contact card) | Samsung Galaxy S25 | not published: `STATUS_FAILED`, fallback to verified empty; one tap showed a chooser (earlier reads reported "unknown tag type") |
 | Sony Xperia XQ-BC72 (chip mode, 99-byte contact card) | Samsung Galaxy S25 | **works**: `WRITTEN`, verified read-back; contact import offered on one tap |
