@@ -132,8 +132,12 @@ second (a full cycle takes two seconds), keeping the signal slow and avoiding a 
 there is no faster setting. Back, Power or **Exit** leaves the screen without turning
 SOS off or unlocking the phone. Covert has no SOS screen entry or notification action.
 The screen cannot remove the Galaxy S25's unlocking requirement and alerts no one by
-itself; someone still has to hold their phone against this one. Locked beacon and
-chip-mode reader checks are not yet tested.
+itself; someone still has to hold their phone against this one. On an unlocked P40,
+the steady screen served SOS; Back, Exit and Power left it without turning SOS off,
+and the slow pulse was reported comfortable. Locked entry could not be completed on
+the tested P40 or Sony, so locked beacon taps and returning to the lock screen with
+Back or Exit remain unverified. The S25 showed the NFC-off warning in place; clearing
+it after NFC was turned back on remains unverified.
 
 **Booth mode:** tap **Booth mode** to show the selected item's label and tap count full
 screen. The screen stays on while booth mode is visible, warnings show when sharing is
@@ -239,6 +243,11 @@ Sony Xperia XQ-BC72; a reader may still recognise an empty tag.
 | Huawei P40 (booth mode, warnings) | — | NFC off shows the warning and settings button; NFC on clears both without exiting Booth (observed on screen). Serve off shows Paused after opening Booth; Serve on clears it after reopening. Deleting the selected spare selects the first remaining item; this procedure could not reach No item selected while other items remained |
 | Samsung Galaxy S25 (booth mode, web link) | Huawei P40 | **works**: one tap opens the web link; Sent appears and the tap count goes up |
 | Samsung Galaxy S25 (main screen, web link) | Huawei P40 | **works**: one tap opens the web link |
+| Huawei P40 (SOS screen, steady, unlocked) | Samsung Galaxy S25 | **works**: operator reports a successful SOS read with the red screen visible |
+| Huawei P40 (SOS screen controls) | — | unlocked Back and Exit return to the main screen; Power exits too, with SOS still on. Slow pulse reported comfortable; Steady restored afterward |
+| Huawei P40 (SOS screen, locked entry) | — | locked beacon tap and Back/Exit remain unverified: the locked notification panel could not be opened; the action was available unlocked |
+| Sony Xperia XQ-BC72 (SOS screen, locked entry) | — | locked beacon tap and Back/Exit remain unverified: operator could not find Show SOS screen; cause not established |
+| Samsung Galaxy S25 (SOS screen, NFC warning) | — | NFC off shows the warning and settings button in the same screen; clearance after NFC on remains unverified |
 | Samsung Galaxy S25 | Sony Xperia XQ-BC72 | not yet tested |
 | Huawei P40 (v0.2) | iPhone 16, iOS 26.6.1 (background tag reading) | **works** for web link, WhatsApp, call, email, SMS; contact card: no response |
 
