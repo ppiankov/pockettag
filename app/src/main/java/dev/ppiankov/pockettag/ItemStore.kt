@@ -58,6 +58,9 @@ object ItemJson {
             // WO-7: credentials remain in the private item document, with no diagnostic copy.
             is TagItem.Wifi -> json.put("ssid", item.ssid).put("security", item.security.name)
                 .put("password", item.password).put("hidden", item.hidden)
+            // WO-13: the emergency contact and public text survive edits without changing the record order.
+            is TagItem.IfFound -> json.put("message", item.message).put("contactName", item.contactName)
+                .put("contactPhone", item.contactPhone).put("notes", item.notes)
         }
         return json
     }
@@ -147,6 +150,9 @@ object ItemJson {
             // WO-7: invalid credentials stay opaque instead of being coerced or discarded.
             "wifi" -> TagItem.Wifi(label, json.string("ssid"), TagItem.Wifi.Security.valueOf(json.string("security")),
                 json.optionalString("password") ?: "", json.optionalBoolean("hidden") ?: false, id)
+            // WO-13: malformed emergency fields remain opaque under the existing preservation rules.
+            "iffound" -> TagItem.IfFound(label, json.string("message"), json.string("contactName"),
+                json.string("contactPhone"), json.optionalString("notes") ?: "", id)
             else -> null
         }
     }
@@ -210,15 +216,8 @@ data class ItemState(
     }
 
     // WO-3: readers see no application when disabled, unselected, or unable to encode.
-    fun ndefFile(enabled: Boolean): ByteArray? {
-        // WO-3: a document-level failure cannot expose any saved content.
-        if (!enabled || !readable) return null
-        return try {
-            activeItem?.let { NdefMessage.ndefFile(it.ndefMessage()) }
-        } catch (_: Exception) {
-            null
-        }
-    }
+    // WO-22: legacy callers retain the normal rule through the shared serving boundary.
+    fun ndefFile(enabled: Boolean): ByteArray? = servedNdefFile(servedItem(this, enabled, SosState()))
 
     companion object {
         // WO-3: storage exceptions share the same non-writable state as parse failures.
@@ -298,6 +297,17 @@ class ItemStore internal constructor(
 
     fun save(item: TagItem) = update { it.save(item) }
     fun select(id: String) = update { it.select(id) }
+    // WO-22: setup may add an emergency card without selecting it as the normal item, even from null.
+    internal fun configureSos(item: TagItem.IfFound, mode: SosMode, runtimePermission: Boolean): Boolean {
+        val state = load()
+        if (!state.readable) return false
+        NdefMessage.ndefFile(item.ndefMessage())
+        val next = state.save(item).copy(activeItemId = state.activeItemId)
+        val sos = SosPrefs(prefs).configured(item.id, mode, runtimePermission)
+        persist(next, sos = sos)
+        return true
+    }
+
     // WO-12: delete the item and its readable counter together; malformed counters remain untouched.
     fun delete(id: String) {
         val state = load()
@@ -307,7 +317,12 @@ class ItemStore internal constructor(
         } catch (_: Exception) {
             null
         }
-        persist(state.delete(id), counts)
+        // WO-22: only deleting a decoded SOS target turns it off; unreadable entries are not deletions.
+        val sos = SosPrefs(prefs).load()
+        val deletedSos = sos.enabled && sos.itemId == id && state.items.any { it.id == id && it is TagItem.IfFound }
+        persist(state.delete(id), counts, if (deletedSos) {
+            sos.copy(enabled = false, offReason = SosOffReason.ITEM_DELETED, permissionPending = false)
+        } else null)
     }
 
     // WO-12: counter corruption cannot affect the saved-item document or trigger a repair write.
@@ -362,7 +377,7 @@ class ItemStore internal constructor(
     }
 
     // WO-3: update content and selection together so a tap never sees half an edit.
-    private fun persist(state: ItemState, counts: Map<String, Int>? = null) {
+    private fun persist(state: ItemState, counts: Map<String, Int>? = null, sos: SosState? = null) {
         // WO-3: the final write boundary also rejects unreadable states.
         if (!state.readable) return
         // WO-3: encoding the whole document preserves entries this version cannot read.
@@ -370,9 +385,13 @@ class ItemStore internal constructor(
             .putString(ACTIVE_ID_KEY, state.activeItemId)
         // WO-12: a deletion's count change shares the item edit, without altering the item schema.
         if (counts != null) editor.putString(TAP_COUNTS_KEY, JSONObject(counts).toString())
+        // WO-22: setup and target deletion publish item content and SOS state in the same editor.
+        if (sos != null) SosPrefs(prefs).write(editor, sos)
         editor.apply()
         // WO-2: item edits, selection, deletion, and migration share this sole content trigger.
         if (requestChipSync != null) requestChipSync() else context?.let { ChipSync.request(it) }
+        // WO-22: deletion and mode changes also cancel or refresh the Open notification and tile.
+        if (sos != null) context?.let { SosController.refresh(it) }
     }
 
     companion object {

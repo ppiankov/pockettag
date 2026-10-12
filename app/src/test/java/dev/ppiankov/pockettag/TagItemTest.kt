@@ -14,6 +14,130 @@ import java.lang.reflect.Proxy
 import java.util.UUID
 
 class TagItemTest {
+    // WO-13: pin both record bytes, their order, and the length of the complete emergency file.
+    @Test
+    fun ifFoundRecordsHaveExactBytes() {
+        val item = TagItem.IfFound("Emergency", "Help.", "Test Contact", "+10000000000", "Note.")
+        val expected = hex("91013F5402656E") +
+            bytes("If found, please call Test Contact: +10000000000\nHelp.\nNote.") +
+            hex("51010D5505") + bytes("+10000000000")
+        assertArrayEquals(expected, item.ndefMessage())
+        assertArrayEquals(hex("0054") + expected, NdefMessage.ndefFile(item.ndefMessage()))
+    }
+
+    // WO-13: absent optional text does not leave extra lines after the fixed contact line.
+    @Test
+    fun ifFoundMessageAndNotesAreOptional() {
+        val telephone = hex("51010D5505") + bytes("+10000000000")
+        assertArrayEquals(hex("9101395402656E") +
+            bytes("If found, please call Test Contact: +10000000000\nHelp.") + telephone,
+            TagItem.IfFound("Emergency", "Help.", "Test Contact", "+10000000000").ndefMessage())
+        assertArrayEquals(hex("9101335402656E") +
+            bytes("If found, please call Test Contact: +10000000000") + telephone,
+            TagItem.IfFound("Emergency", "", "Test Contact", "+10000000000").ndefMessage())
+    }
+
+    // WO-13: the public text and dialling record must agree on one valid contact number.
+    @Test
+    fun ifFoundRequiresAndNormalizesContactPhone() {
+        for (phone in listOf("", " \t\n", "123456", "1234567890123456", "not a number")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                TagItem.IfFound("Emergency", "Help.", "Test Contact", phone)
+            }
+        }
+        val formatted = TagItem.IfFound("Emergency", "Help.", "Test Contact", " +1 (000) 000-0000 ")
+        assertEquals("+10000000000", formatted.contactPhone)
+        assertArrayEquals(TagItem.IfFound("Emergency", "Help.", "Test Contact", "+10000000000").ndefMessage(),
+            formatted.ndefMessage())
+    }
+
+    // WO-13: composition owns message flags while preserving each record and its input buffer.
+    @Test
+    fun recordCompositionMarksOnlyTheFirstAndLastRecords() {
+        val first = NdefMessage.textRecord("Hi")
+        val middle = NdefMessage.textRecord("Hi")
+        val last = NdefMessage.uriRecord("tel:+10000000000")
+        val original = first.copyOf()
+        assertArrayEquals(hex("9101055402656E4869") + hex("1101055402656E4869") +
+            hex("51010D5505") + bytes("+10000000000"), NdefMessage.compose(first, middle, last))
+        assertArrayEquals(original, first)
+        assertArrayEquals(original, middle)
+        assertArrayEquals(hex("D1010D5505") + bytes("+10000000000"), last)
+        assertArrayEquals(original, NdefMessage.compose(first))
+    }
+
+    // WO-13: crossing the payload boundary changes SR and its length, not the message-end flags.
+    @Test
+    fun ifFoundUsesShortThenLongTextHeadersAtTheBoundary() {
+        val contact = "If found, please call Test Contact: +10000000000\n"
+        val telephone = hex("51010D5505") + bytes("+10000000000")
+        assertArrayEquals(hex("9101FF5402656E") + bytes(contact + "x".repeat(203)) + telephone,
+            TagItem.IfFound("Emergency", "x".repeat(203), "Test Contact", "+10000000000").ndefMessage())
+        assertArrayEquals(hex("8101000001005402656E") + bytes(contact + "x".repeat(204)) + telephone,
+            TagItem.IfFound("Emergency", "x".repeat(204), "Test Contact", "+10000000000").ndefMessage())
+    }
+
+    // WO-13: the common whole-file limit applies to both records together.
+    @Test
+    fun oversizedIfFoundFileIsRejected() {
+        val item = TagItem.IfFound("Emergency", "x".repeat(Type4Constants.MAX_NDEF_FILE_SIZE),
+            "Test Contact", "+10000000000")
+        assertThrows(NdefTooLargeException::class.java) { NdefMessage.ndefFile(item.ndefMessage()) }
+        assertNull(ItemState(listOf(item), item.id).ndefFile(enabled = true))
+    }
+
+    // WO-13: storage retains identity and free text without creating a second representation of the message.
+    @Test
+    fun ifFoundJsonRoundTripPreservesFieldsAndBytes() {
+        val item = TagItem.IfFound("Emergency", " Help.\nPlease wait. ", "Test Contact", "+10000000000",
+            " Notes.\n\u00e9 ", "emergency")
+        val json = ItemJson.encode(listOf(item))
+        assertEquals("iffound", JSONArray(json).getJSONObject(0).getString("type"))
+        val restored = ItemJson.decode(json).items.single() as TagItem.IfFound
+        assertEquals(item.id, restored.id)
+        assertEquals(item.label, restored.label)
+        assertEquals(item.message, restored.message)
+        assertEquals(item.contactName, restored.contactName)
+        assertEquals(item.contactPhone, restored.contactPhone)
+        assertEquals(item.notes, restored.notes)
+        assertArrayEquals(item.ndefMessage(), restored.ndefMessage())
+        assertEquals(json, ItemJson.encode(listOf(restored)))
+        val withoutNotes = JSONArray(json).apply { getJSONObject(0).remove("notes") }.toString()
+        assertEquals("", (ItemJson.decode(withoutNotes).items.single() as TagItem.IfFound).notes)
+    }
+
+    // WO-13: a multi-record file crosses ordinary APDU chunks without changing the Type4 state machine.
+    @Test
+    fun type4ReadsTheCompleteIfFoundFile() {
+        val item = TagItem.IfFound("Emergency", "x".repeat(260), "Test Contact", "+10000000000")
+        val file = NdefMessage.ndefFile(item.ndefMessage())
+        var completed = 0
+        val tag = Type4Tag(ndefFileProvider = { file }, onReadComplete = { completed++ })
+        val ok = Type4Constants.SW_OK
+        assertArrayEquals(ok, tag.process(hex("00A4040007D276000085010100")))
+        assertArrayEquals(ok, tag.process(hex("00A4000C02E103")))
+        assertArrayEquals(Type4Constants.CC_FILE + ok, tag.process(hex("00B000000F")))
+        assertArrayEquals(ok, tag.process(hex("00A4000C02E104")))
+        assertArrayEquals(file.copyOfRange(0, 2) + ok, tag.process(hex("00B0000002")))
+        assertEquals(0, completed)
+        var offset = 2
+        var message = ByteArray(0)
+        while (offset < file.size) {
+            val length = minOf(Type4Constants.MLE, file.size - offset)
+            val response = tag.process(byteArrayOf(0x00, 0xB0.toByte(),
+                (offset ushr 8).toByte(), offset.toByte(), length.toByte()))
+            assertArrayEquals(ok, response.takeLast(2).toByteArray())
+            assertEquals(length + 2, response.size)
+            message += response.copyOfRange(0, length)
+            offset += length
+        }
+        assertArrayEquals(item.ndefMessage(), message)
+        assertEquals(1, completed)
+        assertArrayEquals(ok, tag.process(byteArrayOf(0x00, 0xB0.toByte(),
+            (offset ushr 8).toByte(), offset.toByte(), 0x01)))
+        assertEquals(1, completed)
+    }
+
     @Test
     fun eachUriTypeHasExactBytes() {
         assertArrayEquals(hex("D1010C5504") + bytes("example.com"),
@@ -316,7 +440,8 @@ class TagItemTest {
         assertEquals(json, ItemJson.encode(listOf(restored)))
         assertEquals(listOf(TagItem.Type.LINK, TagItem.Type.CONTACT, TagItem.Type.WHATSAPP,
             TagItem.Type.CALL, TagItem.Type.EMAIL, TagItem.Type.SMS,
-            TagItem.Type.NOTE, TagItem.Type.PLACE, TagItem.Type.APP, TagItem.Type.WIFI), TagItem.Type.creatableTypes)
+            TagItem.Type.NOTE, TagItem.Type.PLACE, TagItem.Type.APP, TagItem.Type.WIFI,
+            TagItem.Type.IFFOUND), TagItem.Type.creatableTypes)
         assertFalse(TagItem.Type.creatableTypes.contains(TagItem.Type.RAW))
         val edited = ItemState(listOf(raw), raw.id)
             .save(TagItem.Raw(raw.label, " \texample.com\n", raw.id)).activeItem as TagItem.Raw

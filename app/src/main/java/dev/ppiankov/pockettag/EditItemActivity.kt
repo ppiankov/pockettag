@@ -7,6 +7,8 @@ import android.text.InputType
 import android.text.method.DigitsKeyListener
 import android.text.method.HideReturnsTransformationMethod
 import android.text.method.PasswordTransformationMethod
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.AdapterView
@@ -81,6 +83,21 @@ class EditItemActivity : Activity() {
             visibility = if (existing == null) View.GONE else View.VISIBLE
             setOnClickListener { existing?.let { store.resetTapCount(it.id) } }
         }
+    }
+
+    // WO-36: Save stays reachable while the keyboard covers the form's bottom action.
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        super.onCreateOptionsMenu(menu)
+        menu.add(Menu.NONE, SAVE_ACTION_ID, Menu.NONE, R.string.save)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        return true
+    }
+
+    // WO-36: both Save entries use the same validation, persistence and selection path.
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId != SAVE_ACTION_ID) return super.onOptionsItemSelected(item)
+        save()
+        return true
     }
 
     // WO-3: dynamically created fields retain an unsaved draft across recreation.
@@ -218,6 +235,17 @@ class EditItemActivity : Activity() {
                 }
                 updatePasswordEnabled()
             }
+            // WO-13: the privacy warning stays in the form while the public emergency fields are edited.
+            TagItem.Type.IFFOUND -> {
+                val item = existing as? TagItem.IfFound
+                findViewById<LinearLayout>(R.id.item_fields).addView(TextView(this).apply {
+                    setText(R.string.iffound_privacy)
+                })
+                addField("contactName", R.string.field_emergency_contact, item?.contactName.orEmpty())
+                addField("contactPhone", R.string.field_number, item?.contactPhone.orEmpty(), InputType.TYPE_CLASS_PHONE)
+                addField("message", R.string.field_body, item?.message.orEmpty(), multiline = true)
+                addField("notes", R.string.field_emergency_notes, item?.notes.orEmpty(), multiline = true)
+            }
         }
     }
 
@@ -281,6 +309,9 @@ class EditItemActivity : Activity() {
                     requireNotNull(TagItem.Wifi.Security.entries.getOrNull(wifiSecurity?.selectedItemPosition ?: -1)) {
                         getString(R.string.error_wifi_security)
                     }, value("password"), wifiHidden?.isChecked ?: false, id)
+                // WO-13: the common save boundary validates the complete two-record file before persistence.
+                TagItem.Type.IFFOUND -> TagItem.IfFound(label, value("message"), value("contactName"),
+                    value("contactPhone"), value("notes"), id)
             }
             // WO-21: report the whole encoded file size before any save when the shared limit rejects it.
             val message = item.ndefMessage()
@@ -321,6 +352,7 @@ class EditItemActivity : Activity() {
     }
 
     companion object {
+        private const val SAVE_ACTION_ID = Menu.FIRST // WO-36: unrelated framework menu actions retain their own IDs.
         const val EXTRA_ID = "item_id" // WO-3: edit the item with this stable identity.
         const val EXTRA_TYPE = "item_type" // WO-3: choose the immutable type when creating an item.
         internal const val EXTRA_SHARED_LABEL = "shared_label" // WO-21: the receiver supplies an editable draft label.
@@ -352,4 +384,5 @@ internal fun TagItem.Type.titleResource(): Int = when (this) {
     TagItem.Type.PLACE -> R.string.type_place // WO-9: use the same name in the selector and editor.
     TagItem.Type.APP -> R.string.type_app // WO-10: Android app records share the selector's title mapping.
     TagItem.Type.WIFI -> R.string.type_wifi // WO-7: the selector and credential editor use the same title.
+    TagItem.Type.IFFOUND -> R.string.type_iffound // WO-13: Add and edit share the emergency-card name.
 }

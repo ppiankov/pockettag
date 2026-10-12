@@ -171,7 +171,8 @@ object TagPrefs {
     fun unlisten(context: Context, listener: SharedPreferences.OnSharedPreferenceChangeListener) =
         prefs(context).unregisterOnSharedPreferenceChangeListener(listener)
 
-    private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
+    // WO-22: SOS shares the existing settings file rather than introducing another store.
+    internal fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 }
 
 // WO-7: sanitize at the session boundary before either logging or persisting any response.
@@ -185,9 +186,13 @@ internal class TapTrace(
     private var wifiSession = false // WO-7: sensitivity belongs to the file captured at application SELECT.
 
     // WO-7: the same saved-item snapshot determines both served bytes and trace sensitivity.
-    fun snapshot(state: ItemState, enabled: Boolean): ByteArray? {
+    // WO-22: existing callers keep their normal-serving contract through the same selection rule.
+    fun snapshot(state: ItemState, enabled: Boolean): ByteArray? = snapshot(servedItem(state, enabled, SosState()))
+
+    // WO-22: resolved identity determines both bytes and sensitivity when SOS overrides selection.
+    fun snapshot(item: TagItem?): ByteArray? {
         resetSession()
-        return state.ndefFile(enabled)?.also { wifiSession = state.activeItem is TagItem.Wifi }
+        return servedNdefFile(item)?.also { wifiSession = item is TagItem.Wifi }
     }
 
     // WO-7: a refused selection or deactivation cannot retain an earlier session's sensitivity.
@@ -233,11 +238,12 @@ class NdefHostApduService : HostApduService() {
         // WO-12: a refused selection must not retain an earlier item's count destination.
         servedItemId = null
         trace.resetSession() // WO-7: unavailable content cannot inherit an earlier Wi-Fi session flag.
-        if (!TagPrefs.enabled(this)) return null
         return try {
             // WO-12: snapshot identity and encoded content from the same saved-item state.
             val state = ItemStore(this).load()
-            trace.snapshot(state, enabled = true)?.also { servedItemId = state.activeItemId }
+            // WO-22: bind count destination and trace privacy to the item actually served during SOS.
+            val item = servedItem(state, TagPrefs.enabled(this), SosPrefs(this).load())
+            trace.snapshot(item)?.also { servedItemId = item?.id }
         } catch (_: Exception) {
             null
         }

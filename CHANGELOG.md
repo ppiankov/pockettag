@@ -8,6 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- Open-only SOS screen over the lock screen, with a public instruction, an optional
+  owner line, steady or slow-pulse display, and window-only brightness and screen-on handling.
+- SOS override with Open and Covert modes, a Quick Settings tile, an optional Open
+  notification and Off action, and shared HCE, chip-mode and Booth serving identity.
+- Saved emergency cards with a help-text record followed by a contact telephone record,
+  optional message and notes, and a persistent editor privacy warning.
 - Share-menu support for text and web links, with an editable draft and selection only
   after Save.
 - Saved **Keep screen awake** switch for the main screen, default off, with normal timeout
@@ -31,6 +37,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- Editor Save stays available in the top bar while the keyboard is open.
 - Shared text accepts styled text and subjects, normalizes plain-text MIME types, and
   opens the editor without a blank receiver screen.
 - Oversized saves report the whole encoded tag file's byte count in the inline error.
